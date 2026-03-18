@@ -10,6 +10,7 @@ import {
   Sparkles,
   Video,
   Users,
+  Play,
 } from 'lucide-react-taro'
 
 interface FeatureItem {
@@ -63,54 +64,99 @@ const templates: TemplateItem[] = [
 
 const IndexPage: FC = () => {
   const handleCreateClick = () => {
-    Taro.navigateTo({ url: '/pages/create/index?type=custom' })
+    Taro.navigateTo({ url: '/pages/custom/index' })
   }
 
   const handleFeatureClick = (type: string) => {
-    Taro.navigateTo({ url: `/pages/create/index?type=${type}` })
+    if (type === 'shop') {
+      Taro.navigateTo({ url: '/pages/shop/index' })
+    } else if (type === 'product') {
+      Taro.navigateTo({ url: '/pages/product/index' })
+    } else if (type === 'batch') {
+      Taro.navigateTo({ url: '/pages/product/index' })
+    } else {
+      Taro.showToast({ title: '功能开发中，敬请期待', icon: 'none' })
+    }
   }
 
-  const handleTemplateClick = (id: string) => {
-    Taro.navigateTo({ url: `/pages/create/index?templateId=${id}` })
+  const handleTemplateClick = () => {
+    Taro.navigateTo({ url: '/pages/custom/index' })
   }
 
   return (
     <View className="min-h-screen bg-black">
-      {/* 宣传区 */}
-      <View
-        className="relative h-80 overflow-hidden"
-        style={{
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        }}
+      {/* 宣传区 - 模拟AI人物背景 */}
+      <View 
+        className="relative overflow-hidden"
+        style={{ height: '380px' }}
       >
-        {/* 背景装饰 */}
-        <View
-          className="absolute inset-0 opacity-30"
+        {/* 渐变背景 */}
+        <View 
+          className="absolute inset-0"
           style={{
-            background:
-              'radial-gradient(circle at 20% 50%, rgba(236, 72, 153, 0.3) 0%, transparent 50%)',
+            background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0c29 100%)',
+          }}
+        />
+        
+        {/* 装饰性渐变圆 */}
+        <View 
+          className="absolute"
+          style={{
+            width: '300px',
+            height: '300px',
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(168, 85, 247, 0.3) 0%, transparent 70%)',
+            top: '-50px',
+            right: '-50px',
+          }}
+        />
+        <View 
+          className="absolute"
+          style={{
+            width: '250px',
+            height: '250px',
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(236, 72, 153, 0.2) 0%, transparent 70%)',
+            bottom: '20px',
+            left: '-80px',
           }}
         />
 
         {/* 内容 */}
         <View className="relative z-10 flex flex-col items-center justify-center h-full px-4">
-          <Text className="text-yellow-400 text-3xl font-bold mb-2">
+          <Text 
+            className="font-bold mb-2"
+            style={{ 
+              fontSize: '32px',
+              background: 'linear-gradient(90deg, #fbbf24, #f59e0b)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}
+          >
             谁用谁火
           </Text>
-          <Text className="text-white text-xl font-semibold mb-4">
+          <Text className="text-white text-xl font-semibold mb-3">
             AI视频自动生成器
           </Text>
-          <Text className="text-gray-200 text-sm mb-6">
-            一张图片 + 文案，一键创作爆款视频
+          <Text className="text-gray-300 text-sm mb-2">
+            一张图片+文案
+          </Text>
+          <Text className="text-gray-300 text-sm mb-6">
+            一键创作爆款视频
           </Text>
 
           {/* 一键创作按钮 */}
           <View
-            className="bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl px-8 py-3 flex flex-row items-center gap-2 active:opacity-80"
+            className="flex flex-row items-center justify-center rounded-xl active:opacity-80"
+            style={{
+              background: 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)',
+              width: '160px',
+              height: '44px',
+            }}
             onClick={handleCreateClick}
           >
-            <Sparkles size={20} color="#ffffff" />
-            <Text className="text-white font-medium text-base">一键创作</Text>
+            <Sparkles size={18} color="#ffffff" />
+            <Text className="text-white font-medium text-base ml-2">一键创作</Text>
           </View>
         </View>
       </View>
@@ -135,7 +181,7 @@ const IndexPage: FC = () => {
       </View>
 
       {/* 创意模版 */}
-      <View className="px-4 pb-20">
+      <View className="px-4 pb-24">
         <View className="flex flex-row items-center justify-between mb-4">
           <Text className="text-white text-lg font-semibold">创意模版</Text>
           <Text className="text-gray-400 text-sm">查看更多</Text>
@@ -143,18 +189,35 @@ const IndexPage: FC = () => {
 
         <ScrollView
           scrollX
-          className="flex flex-row gap-4"
-          style={{ width: '100%' }}
+          className="w-full"
+          style={{ whiteSpace: 'nowrap' }}
         >
           {templates.map((template) => (
             <View
               key={template.id}
-              className="flex-shrink-0 w-40 bg-gray-900 rounded-xl overflow-hidden active:opacity-80"
-              onClick={() => handleTemplateClick(template.id)}
+              className="inline-block mr-4 w-40 bg-gray-900 rounded-xl overflow-hidden active:opacity-80"
+              onClick={() => handleTemplateClick()}
             >
-              <View className="aspect-[3/4] bg-gray-800">
-                <View className="w-full h-full flex items-center justify-center">
-                  <Video size={40} color="#6B7280" />
+              <View 
+                className="aspect-[3/4] bg-gray-800 flex items-center justify-center"
+                style={{ position: 'relative' }}
+              >
+                <Video size={40} color="#6B7280" />
+                <View 
+                  style={{
+                    position: 'absolute',
+                    top: '8px',
+                    right: '8px',
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    background: 'rgba(0, 0, 0, 0.5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Play size={16} color="#ffffff" />
                 </View>
               </View>
               <View className="p-3">

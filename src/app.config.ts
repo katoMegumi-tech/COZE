@@ -5,6 +5,9 @@ export default defineAppConfig({
     'pages/character/index',
     'pages/works/index',
     'pages/profile/index',
+    'pages/shop/index',
+    'pages/product/index',
+    'pages/custom/index',
     'pages/create/index',
   ],
   window: {

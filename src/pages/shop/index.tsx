@@ -1,66 +1,45 @@
-import { View, Text, Input, Textarea, Image as TaroImage, ScrollView } from '@tarojs/components'
-import Taro, { useRouter } from '@tarojs/taro'
+import { View, Text, Input, ScrollView, Image as TaroImage } from '@tarojs/components'
+import Taro from '@tarojs/taro'
 import type { FC } from 'react'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   Upload,
   Camera,
   Image,
-  Sparkles,
-  ArrowLeft,
   ChevronRight,
+  ArrowLeft,
 } from 'lucide-react-taro'
 
 type CreationTab = 'custom' | 'shop' | 'product'
 type Mode = 'simple' | 'creative'
 
-interface FormData {
-  // 店铺创作
-  shopName: string
-  shopAddress: string
-  businessScope: string
-  generationType: 'shop_promotion' | 'model_promotion'
-  // 产品创作 & 自定义
-  prompt: string
-  // 通用参数
-  image: string
-  generationCount: number
-  channel: string
-  videoLength: number
-  resolution: string
-  videoFormat: 'vertical' | 'horizontal'
-  subtitleOption: 'hide' | 'show'
-}
-
-const CreatePage: FC = () => {
-  const router = useRouter()
-  const [activeTab, setActiveTab] = useState<CreationTab>('custom')
+const ShopCreatePage: FC = () => {
+  const activeTab: CreationTab = 'shop'
   const [mode, setMode] = useState<Mode>('simple')
-  const [formData, setFormData] = useState<FormData>({
+  const [formData, setFormData] = useState({
+    image: '',
     shopName: '',
     shopAddress: '',
     businessScope: '',
-    generationType: 'shop_promotion',
-    prompt: '',
-    image: '',
+    generationType: 'shop_promotion' as 'shop_promotion' | 'model_promotion',
     generationCount: 1,
     channel: 'VED3.1',
     videoLength: 8,
     resolution: '720P',
-    videoFormat: 'vertical',
-    subtitleOption: 'hide',
+    videoFormat: 'vertical' as 'vertical' | 'horizontal',
+    subtitleOption: 'hide' as 'hide' | 'show',
   })
-  const [isGenerating, setIsGenerating] = useState(false)
-
-  useEffect(() => {
-    const tab = router.params.tab as CreationTab
-    if (tab && ['custom', 'shop', 'product'].includes(tab)) {
-      setActiveTab(tab)
-    }
-  }, [router.params])
 
   const handleBack = () => {
     Taro.navigateBack()
+  }
+
+  const handleTabChange = (tab: CreationTab) => {
+    if (tab === 'custom') {
+      Taro.redirectTo({ url: '/pages/custom/index' })
+    } else if (tab === 'product') {
+      Taro.redirectTo({ url: '/pages/product/index' })
+    }
   }
 
   const handleChooseImage = async () => {
@@ -81,22 +60,7 @@ const CreatePage: FC = () => {
       Taro.showToast({ title: '请先上传图片', icon: 'none' })
       return
     }
-
-    setIsGenerating(true)
-    try {
-      // TODO: 调用后端视频生成接口
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      Taro.showToast({ title: '视频生成成功', icon: 'success' })
-    } catch (error) {
-      Taro.showToast({ title: '生成失败，请重试', icon: 'none' })
-    } finally {
-      setIsGenerating(false)
-    }
-  }
-
-  const handleOptimizePrompt = async () => {
-    // TODO: 调用AI润色接口
-    Taro.showToast({ title: 'AI润色功能开发中', icon: 'none' })
+    Taro.showToast({ title: '视频生成中...', icon: 'loading' })
   }
 
   const tabs = [
@@ -111,7 +75,7 @@ const CreatePage: FC = () => {
       <View className="flex flex-row items-center px-4 py-3 border-b border-gray-800">
         <View className="flex flex-row items-center" onClick={handleBack}>
           <ArrowLeft size={20} color="#ffffff" />
-          <Text className="text-white text-base ml-1">返回</Text>
+          <Text className="text-white text-base ml-1">店铺创作</Text>
         </View>
       </View>
 
@@ -128,7 +92,7 @@ const CreatePage: FC = () => {
               borderWidth: activeTab === tab.key ? 0 : 1,
               borderColor: '#a855f7',
             }}
-            onClick={() => setActiveTab(tab.key)}
+            onClick={() => handleTabChange(tab.key)}
           >
             <Text className="text-white text-sm">{tab.label}</Text>
           </View>
@@ -138,27 +102,11 @@ const CreatePage: FC = () => {
       <ScrollView scrollY className="px-4" style={{ height: 'calc(100vh - 180px)' }}>
         {/* 图片上传区 */}
         <View className="mb-4">
-          <View className="flex flex-row items-center justify-between mb-2">
-            <Text className="text-gray-400 text-xs">参考图片/图片中不得有任何人物</Text>
-            {activeTab === 'custom' && (
-              <View 
-                className="flex flex-row items-center gap-1 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full px-3 py-1"
-                onClick={() => Taro.showToast({ title: '创建图片功能开发中', icon: 'none' })}
-              >
-                <Image size={12} color="#ffffff" />
-                <Text className="text-white text-xs">创建图片</Text>
-              </View>
-            )}
-          </View>
-          
+          <Text className="text-gray-400 text-xs mb-2">参考图片/图片中不得有任何人物</Text>
           <View className="bg-gray-900 rounded-xl p-6 flex flex-col items-center justify-center">
             {formData.image ? (
               <View className="w-full aspect-video relative rounded-lg overflow-hidden">
-                <TaroImage
-                  src={formData.image}
-                  mode="aspectFill"
-                  className="w-full h-full"
-                />
+                <TaroImage src={formData.image} mode="aspectFill" className="w-full h-full" />
                 <View
                   className="absolute top-2 right-2 bg-black bg-opacity-50 rounded-full px-3 py-1"
                   onClick={() => setFormData({ ...formData, image: '' })}
@@ -171,9 +119,7 @@ const CreatePage: FC = () => {
                 <View className="w-12 h-12 rounded-full bg-gray-800 flex items-center justify-center mb-3">
                   <Upload size={24} color="#9CA3AF" />
                 </View>
-                <Text className="text-gray-400 text-sm mb-3">
-                  点击上传{activeTab === 'shop' ? '店铺门头/店内照' : activeTab === 'product' ? '产品图片' : '图片'}
-                </Text>
+                <Text className="text-gray-400 text-sm mb-3">点击上传店铺门头/店内照</Text>
                 <View className="w-full flex flex-row items-center justify-center">
                   <Text className="text-gray-500 text-xs">—— 或者 ——</Text>
                 </View>
@@ -193,24 +139,9 @@ const CreatePage: FC = () => {
                     <Text className="text-white text-xs">直接拍</Text>
                   </View>
                 </View>
-                {activeTab === 'product' && (
-                  <View className="mt-3 flex flex-row items-center justify-center">
-                    <View className="w-20 h-20 bg-gray-800 rounded-lg overflow-hidden flex items-center justify-center">
-                      <Text className="text-gray-500 text-xs">单张展示案例</Text>
-                    </View>
-                  </View>
-                )}
               </>
             )}
           </View>
-          <Text className="text-gray-500 text-xs mt-2">
-            玩法解密: 上传产品多角度拼图,生成视频效果更佳
-          </Text>
-          {activeTab === 'custom' && (
-            <Text className="text-orange-500 text-xs mt-1">
-              特别提示: 图片不可含人物,否则视频生成会失败
-            </Text>
-          )}
         </View>
 
         {/* 模式切换 */}
@@ -239,6 +170,74 @@ const CreatePage: FC = () => {
           </View>
         </View>
 
+        {/* 生成类型 */}
+        <View className="mb-4">
+          <Text className="text-white text-sm font-medium mb-2">生成类型</Text>
+          <View className="flex flex-row gap-2">
+            <View
+              className="rounded-lg px-4 py-2"
+              style={{
+                background: formData.generationType === 'shop_promotion'
+                  ? 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)'
+                  : '#1f2937',
+              }}
+              onClick={() => setFormData({ ...formData, generationType: 'shop_promotion' })}
+            >
+              <Text className="text-white text-sm">店铺宣传</Text>
+            </View>
+            <View
+              className="rounded-lg px-4 py-2"
+              style={{
+                background: formData.generationType === 'model_promotion'
+                  ? 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)'
+                  : '#1f2937',
+              }}
+              onClick={() => setFormData({ ...formData, generationType: 'model_promotion' })}
+            >
+              <Text className="text-white text-sm">模特推店</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* 店铺名称 */}
+        <View className="mb-4">
+          <Text className="text-white text-sm font-medium mb-2">店铺名称</Text>
+          <View className="bg-gray-800 rounded-lg px-4 py-3">
+            <Input
+              className="w-full bg-transparent text-white placeholder-gray-400 text-sm"
+              placeholder="请输入店铺名称"
+              value={formData.shopName}
+              onInput={(e) => setFormData({ ...formData, shopName: e.detail.value })}
+            />
+          </View>
+        </View>
+
+        {/* 店铺地址 */}
+        <View className="mb-4">
+          <Text className="text-white text-sm font-medium mb-2">店铺地址</Text>
+          <View className="bg-gray-800 rounded-lg px-4 py-3">
+            <Input
+              className="w-full bg-transparent text-white placeholder-gray-400 text-sm"
+              placeholder="输入你店开在那如某某路多少号等"
+              value={formData.shopAddress}
+              onInput={(e) => setFormData({ ...formData, shopAddress: e.detail.value })}
+            />
+          </View>
+        </View>
+
+        {/* 主营业务 */}
+        <View className="mb-4">
+          <Text className="text-white text-sm font-medium mb-2">主营业务</Text>
+          <View className="bg-gray-800 rounded-lg px-4 py-3">
+            <Input
+              className="w-full bg-transparent text-white placeholder-gray-400 text-sm"
+              placeholder="输入你主营业务或产品"
+              value={formData.businessScope}
+              onInput={(e) => setFormData({ ...formData, businessScope: e.detail.value })}
+            />
+          </View>
+        </View>
+
         {/* 广告栏 */}
         <View className="bg-gradient-to-r from-purple-900 to-pink-900 rounded-xl p-4 mb-4 flex flex-row items-center justify-between">
           <View className="flex flex-row items-center gap-3">
@@ -253,122 +252,7 @@ const CreatePage: FC = () => {
           <ChevronRight size={16} color="#9CA3AF" />
         </View>
 
-        {/* 店铺创作表单 */}
-        {activeTab === 'shop' && (
-          <View className="mb-4">
-            <Text className="text-white text-sm font-medium mb-2">生成类型</Text>
-            <View className="flex flex-row gap-2 mb-4">
-              <View
-                className="rounded-lg px-4 py-2"
-                style={{
-                  background: formData.generationType === 'shop_promotion'
-                    ? 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)'
-                    : '#1f2937',
-                }}
-                onClick={() =>
-                  setFormData({ ...formData, generationType: 'shop_promotion' })
-                }
-              >
-                <Text className="text-white text-sm">店铺宣传</Text>
-              </View>
-              <View
-                className="rounded-lg px-4 py-2"
-                style={{
-                  background: formData.generationType === 'model_promotion'
-                    ? 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)'
-                    : '#1f2937',
-                }}
-                onClick={() =>
-                  setFormData({ ...formData, generationType: 'model_promotion' })
-                }
-              >
-                <Text className="text-white text-sm">模特推店</Text>
-              </View>
-            </View>
-
-            <Text className="text-white text-sm font-medium mb-2">店铺名称</Text>
-            <View className="bg-gray-800 rounded-lg px-4 py-3 mb-4">
-              <Input
-                className="w-full bg-transparent text-white placeholder-gray-400 text-sm"
-                placeholder="请输入店铺名称"
-                value={formData.shopName}
-                onInput={(e) =>
-                  setFormData({ ...formData, shopName: e.detail.value })
-                }
-              />
-            </View>
-
-            <Text className="text-white text-sm font-medium mb-2">店铺地址</Text>
-            <View className="bg-gray-800 rounded-lg px-4 py-3 mb-4">
-              <Input
-                className="w-full bg-transparent text-white placeholder-gray-400 text-sm"
-                placeholder="输入你店开在那如某某路多少号等"
-                value={formData.shopAddress}
-                onInput={(e) =>
-                  setFormData({ ...formData, shopAddress: e.detail.value })
-                }
-              />
-            </View>
-
-            <Text className="text-white text-sm font-medium mb-2">主营业务</Text>
-            <View className="bg-gray-800 rounded-lg px-4 py-3">
-              <Input
-                className="w-full bg-transparent text-white placeholder-gray-400 text-sm"
-                placeholder="输入你主营业务或产品"
-                value={formData.businessScope}
-                onInput={(e) =>
-                  setFormData({ ...formData, businessScope: e.detail.value })
-                }
-              />
-            </View>
-          </View>
-        )}
-
-        {/* 产品创作 & 自定义表单 */}
-        {(activeTab === 'product' || activeTab === 'custom') && (
-          <View className="mb-4">
-            <Text className="text-white text-sm font-medium mb-2">描述提示词</Text>
-            <View className="bg-gray-800 rounded-xl p-4 mb-2">
-              <Textarea
-                style={{
-                  width: '100%',
-                  minHeight: '100px',
-                  backgroundColor: 'transparent',
-                  color: '#ffffff',
-                  fontSize: '14px',
-                }}
-                placeholder="请输入描述提示词"
-                maxlength={2000}
-                value={formData.prompt}
-                onInput={(e) =>
-                  setFormData({ ...formData, prompt: e.detail.value })
-                }
-              />
-              <View className="flex flex-row items-center justify-between mt-2">
-                <Text className="text-gray-500 text-xs">
-                  {formData.prompt.length}/2000
-                </Text>
-                <View className="flex flex-row gap-2">
-                  <View
-                    className="flex flex-row items-center gap-1 bg-gray-700 rounded-lg px-3 py-1"
-                    onClick={handleOptimizePrompt}
-                  >
-                    <Sparkles size={12} color="#ec4899" />
-                    <Text className="text-pink-400 text-xs">AI润色</Text>
-                  </View>
-                  <View
-                    className="bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg px-3 py-1"
-                    onClick={handleOptimizePrompt}
-                  >
-                    <Text className="text-white text-xs">优化提示词</Text>
-                  </View>
-                </View>
-              </View>
-            </View>
-          </View>
-        )}
-
-        {/* 视频参数设置 */}
+        {/* 视频参数 */}
         <View className="mb-4">
           <Text className="text-white text-sm font-medium mb-2">生成数量</Text>
           <View className="flex flex-row gap-2 mb-4">
@@ -381,9 +265,7 @@ const CreatePage: FC = () => {
                     ? 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)'
                     : '#1f2937',
                 }}
-                onClick={() =>
-                  setFormData({ ...formData, generationCount: count })
-                }
+                onClick={() => setFormData({ ...formData, generationCount: count })}
               >
                 <Text className="text-white text-sm">{count}</Text>
               </View>
@@ -392,11 +274,9 @@ const CreatePage: FC = () => {
 
           <Text className="text-white text-sm font-medium mb-2">选择渠道</Text>
           <View className="flex flex-row gap-2 mb-4">
-            <View 
+            <View
               className="rounded-lg px-4 py-2"
-              style={{
-                background: 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)',
-              }}
+              style={{ background: 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)' }}
             >
               <Text className="text-white text-sm">VED3.1</Text>
             </View>
@@ -404,25 +284,18 @@ const CreatePage: FC = () => {
 
           <Text className="text-white text-sm font-medium mb-2">视频长度</Text>
           <View className="flex flex-row gap-2 mb-4">
-            {[
-              { value: 5, label: '5s' },
-              { value: 8, label: '8s' },
-              { value: 10, label: '10s' },
-              { value: 12, label: '12s' },
-            ].map((item) => (
+            {[5, 8, 10, 12].map((length) => (
               <View
-                key={item.value}
+                key={length}
                 className="rounded-lg px-4 py-2"
                 style={{
-                  background: formData.videoLength === item.value
+                  background: formData.videoLength === length
                     ? 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)'
                     : '#1f2937',
                 }}
-                onClick={() =>
-                  setFormData({ ...formData, videoLength: item.value })
-                }
+                onClick={() => setFormData({ ...formData, videoLength: length })}
               >
-                <Text className="text-white text-sm">{item.label}</Text>
+                <Text className="text-white text-sm">{length}s</Text>
               </View>
             ))}
           </View>
@@ -454,9 +327,7 @@ const CreatePage: FC = () => {
                   ? 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)'
                   : '#1f2937',
               }}
-              onClick={() =>
-                setFormData({ ...formData, videoFormat: 'vertical' })
-              }
+              onClick={() => setFormData({ ...formData, videoFormat: 'vertical' })}
             >
               <Text className="text-white text-sm">竖屏</Text>
             </View>
@@ -467,9 +338,7 @@ const CreatePage: FC = () => {
                   ? 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)'
                   : '#1f2937',
               }}
-              onClick={() =>
-                setFormData({ ...formData, videoFormat: 'horizontal' })
-              }
+              onClick={() => setFormData({ ...formData, videoFormat: 'horizontal' })}
             >
               <Text className="text-white text-sm">横屏</Text>
             </View>
@@ -502,9 +371,7 @@ const CreatePage: FC = () => {
           </View>
         </View>
 
-        <Text className="text-gray-500 text-xs mb-2">
-          内容涉及AI人工智能
-        </Text>
+        <Text className="text-gray-500 text-xs mb-2">内容涉及AI人工智能</Text>
       </ScrollView>
 
       {/* 底部生成按钮 */}
@@ -521,20 +388,14 @@ const CreatePage: FC = () => {
       >
         <View
           className="rounded-xl py-4 flex items-center justify-center"
-          style={{
-            background: isGenerating
-              ? '#4a5568'
-              : 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)',
-          }}
-          onClick={isGenerating ? undefined : handleGenerate}
+          style={{ background: 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)' }}
+          onClick={handleGenerate}
         >
-          <Text className="text-white font-medium text-base">
-            {isGenerating ? '生成中...' : '立即生成视频（50点）'}
-          </Text>
+          <Text className="text-white font-medium text-base">立即生成视频（50点）</Text>
         </View>
       </View>
     </View>
   )
 }
 
-export default CreatePage
+export default ShopCreatePage
