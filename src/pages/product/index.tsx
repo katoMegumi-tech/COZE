@@ -132,8 +132,6 @@ const ProductCreatePage: FC = () => {
       }
     }
 
-    Taro.showToast({ title: '视频生成中...', icon: 'loading' })
-    
     // 上传图片
     const imageUrl = await uploadImage(formData.image)
     if (!imageUrl) {
@@ -141,8 +139,10 @@ const ProductCreatePage: FC = () => {
       return
     }
 
-    // TODO: 调用后端视频生成接口
-    console.log('生成视频参数:', { ...formData, imageUrl })
+    // 跳转到结果页面
+    Taro.navigateTo({
+      url: `/pages/result/index?mode=${mode}&imageUrl=${encodeURIComponent(imageUrl)}&productName=${encodeURIComponent(formData.productName)}&backgroundScene=${encodeURIComponent(formData.backgroundScene)}&productFeature=${encodeURIComponent(formData.productFeature)}&priceRecommendation=${encodeURIComponent(formData.priceRecommendation)}&prompt=${encodeURIComponent(formData.prompt)}&generationType=${formData.generationType}&creationStyle=${formData.creationStyle}`
+    })
   }
 
   const tabs = [

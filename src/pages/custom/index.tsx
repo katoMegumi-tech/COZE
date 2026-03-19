@@ -128,8 +128,6 @@ const CustomCreatePage: FC = () => {
       return
     }
 
-    Taro.showToast({ title: '视频生成中...', icon: 'loading' })
-    
     // 上传图片
     const imageUrl = await uploadImage(formData.image)
     if (!imageUrl) {
@@ -137,8 +135,10 @@ const CustomCreatePage: FC = () => {
       return
     }
 
-    // TODO: 调用后端视频生成接口
-    console.log('生成视频参数:', { ...formData, imageUrl })
+    // 跳转到结果页面
+    Taro.navigateTo({
+      url: `/pages/result/index?mode=custom&imageUrl=${encodeURIComponent(imageUrl)}&prompt=${encodeURIComponent(formData.prompt)}`
+    })
   }
 
   const tabs = [

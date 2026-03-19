@@ -9,6 +9,7 @@ export default defineAppConfig({
     'pages/product/index',
     'pages/custom/index',
     'pages/create/index',
+    'pages/result/index',
   ],
   window: {
     backgroundTextStyle: 'dark',
