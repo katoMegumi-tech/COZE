@@ -161,6 +161,18 @@ const ResultPage: FC = () => {
     setCurrentPreview(null)
   }
 
+  // 取消确定
+  const handleCancelConfirm = (segmentId: string) => {
+    setVideoSegments(prev => 
+      prev.map(seg => 
+        seg.id === segmentId 
+          ? { ...seg, confirmed: false } 
+          : seg
+      )
+    )
+    setCurrentPreview(null)
+  }
+
   // 确认合成
   const handleMerge = async () => {
     const allConfirmed = videoSegments.every(seg => seg.confirmed)
@@ -316,27 +328,41 @@ const ResultPage: FC = () => {
 
                   {/* 操作按钮 */}
                   <View className="flex flex-row gap-3">
-                    <View
-                      className="flex-1 rounded-lg py-3 flex flex-row items-center justify-center gap-2 bg-gray-800"
-                      onClick={() => handleRegenerate(segment.id)}
-                    >
-                      <RefreshCw size={16} color="#9CA3AF" />
-                      <Text className="text-gray-300 text-sm">重新生成</Text>
-                    </View>
-                    <View
-                      className="flex-1 rounded-lg py-3 flex flex-row items-center justify-center gap-2"
-                      style={{
-                        background: segment.confirmed 
-                          ? '#374151'
-                          : 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)'
-                      }}
-                      onClick={() => handleConfirm(segment.id)}
-                    >
-                      <Check size={16} color={segment.confirmed ? '#6B7280' : '#ffffff'} />
-                      <Text className={segment.confirmed ? 'text-gray-500 text-sm' : 'text-white text-sm'}>
-                        {segment.confirmed ? '已确定' : '确定'}
-                      </Text>
-                    </View>
+                    {!segment.confirmed ? (
+                      <>
+                        <View
+                          className="flex-1 rounded-lg py-3 flex flex-row items-center justify-center gap-2 bg-gray-800"
+                          onClick={() => handleRegenerate(segment.id)}
+                        >
+                          <RefreshCw size={16} color="#9CA3AF" />
+                          <Text className="text-gray-300 text-sm">重新生成</Text>
+                        </View>
+                        <View
+                          className="flex-1 rounded-lg py-3 flex flex-row items-center justify-center gap-2"
+                          style={{ background: 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)' }}
+                          onClick={() => handleConfirm(segment.id)}
+                        >
+                          <Check size={16} color="#ffffff" />
+                          <Text className="text-white text-sm">确定</Text>
+                        </View>
+                      </>
+                    ) : (
+                      <>
+                        <View
+                          className="flex-1 rounded-lg py-3 flex flex-row items-center justify-center gap-2 bg-gray-800"
+                          onClick={() => handleCancelConfirm(segment.id)}
+                        >
+                          <Text className="text-gray-300 text-sm">取消确定</Text>
+                        </View>
+                        <View
+                          className="flex-1 rounded-lg py-3 flex flex-row items-center justify-center gap-2"
+                          style={{ background: 'linear-gradient(90deg, #10b981 0%, #059669 100%)' }}
+                        >
+                          <Check size={16} color="#ffffff" />
+                          <Text className="text-white text-sm">已确定</Text>
+                        </View>
+                      </>
+                    )}
                   </View>
                 </View>
               ))}
@@ -489,24 +515,47 @@ const ResultPage: FC = () => {
             }}
           >
             <View className="flex flex-row gap-3">
-              <View
-                className="flex-1 rounded-xl py-4 flex flex-row items-center justify-center gap-2 bg-gray-800"
-                onClick={() => {
-                  handleRegenerate(currentPreview)
-                  handleClosePreview()
-                }}
-              >
-                <RefreshCw size={16} color="#9CA3AF" />
-                <Text className="text-white text-base">重新生成</Text>
-              </View>
-              <View
-                className="flex-1 rounded-xl py-4 flex flex-row items-center justify-center gap-2"
-                style={{ background: 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)' }}
-                onClick={() => handleConfirm(currentPreview)}
-              >
-                <Check size={16} color="#ffffff" />
-                <Text className="text-white text-base">确定</Text>
-              </View>
+              {videoSegments.find(s => s.id === currentPreview)?.confirmed ? (
+                <>
+                  <View
+                    className="flex-1 rounded-xl py-4 flex flex-row items-center justify-center gap-2 bg-gray-800"
+                    onClick={() => {
+                      handleRegenerate(currentPreview)
+                      handleClosePreview()
+                    }}
+                  >
+                    <RefreshCw size={16} color="#9CA3AF" />
+                    <Text className="text-white text-base">重新生成</Text>
+                  </View>
+                  <View
+                    className="flex-1 rounded-xl py-4 flex flex-row items-center justify-center gap-2 bg-gray-800"
+                    onClick={() => handleCancelConfirm(currentPreview)}
+                  >
+                    <Text className="text-gray-300 text-base">取消确定</Text>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <View
+                    className="flex-1 rounded-xl py-4 flex flex-row items-center justify-center gap-2 bg-gray-800"
+                    onClick={() => {
+                      handleRegenerate(currentPreview)
+                      handleClosePreview()
+                    }}
+                  >
+                    <RefreshCw size={16} color="#9CA3AF" />
+                    <Text className="text-white text-base">重新生成</Text>
+                  </View>
+                  <View
+                    className="flex-1 rounded-xl py-4 flex flex-row items-center justify-center gap-2"
+                    style={{ background: 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)' }}
+                    onClick={() => handleConfirm(currentPreview)}
+                  >
+                    <Check size={16} color="#ffffff" />
+                    <Text className="text-white text-base">确定</Text>
+                  </View>
+                </>
+              )}
             </View>
           </View>
         </View>
