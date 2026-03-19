@@ -80,7 +80,7 @@ const ProductCreatePage: FC = () => {
   const uploadImage = async (tempFilePath: string): Promise<string | null> => {
     try {
       const res = await Network.uploadFile({
-        url: '/api/upload',
+        url: '/api/upload/image',
         filePath: tempFilePath,
         name: 'file',
       })
@@ -135,7 +135,19 @@ const ProductCreatePage: FC = () => {
     // 上传图片
     const imageUrl = await uploadImage(formData.image)
     if (!imageUrl) {
-      Taro.showToast({ title: '图片上传失败', icon: 'none' })
+      // 上传失败时提供测试模式选项
+      Taro.showModal({
+        title: '图片上传失败',
+        content: '是否使用测试模式直接预览结果页面？',
+        success: (res) => {
+          if (res.confirm) {
+            // 使用测试URL跳转
+            Taro.navigateTo({
+              url: `/pages/result/index?mode=${mode}&imageUrl=${encodeURIComponent('https://via.placeholder.com/400x300')}&productName=${encodeURIComponent(formData.productName)}&backgroundScene=${encodeURIComponent(formData.backgroundScene)}&productFeature=${encodeURIComponent(formData.productFeature)}&priceRecommendation=${encodeURIComponent(formData.priceRecommendation)}&prompt=${encodeURIComponent(formData.prompt)}&generationType=${formData.generationType}&creationStyle=${formData.creationStyle}`
+            })
+          }
+        }
+      })
       return
     }
 
