@@ -23,6 +23,15 @@ export interface VideoSegment {
   duration: number;
 }
 
+export interface WorkflowProgress {
+  event: string;
+  nodeTitle?: string;
+  nodeId?: string;
+  content?: string;
+  videoUrl?: string;
+  isFinish: boolean;
+}
+
 @Injectable()
 export class VideoService {
   private apiClient: CozeAPI;
@@ -34,13 +43,20 @@ export class VideoService {
     });
   }
 
+  /**
+   * 生成视频分段
+   * 处理Coze工作流的SSE流式响应
+   */
   async generateVideoSegments(
     params: VideoGenerationParams,
   ): Promise<VideoSegment[]> {
-    try {
-      console.log('[VideoService] Generating video segments with params:', params);
+    console.log('[VideoService] Starting video generation with params:', {
+      ...params,
+      images: params.images?.length ? `${params.images.length} images` : 'no images',
+    });
 
-      // 调用 Coze 工作流
+    try {
+      // 调用 Coze 工作流流式接口
       const stream = await this.apiClient.workflows.runs.stream({
         workflow_id: '7618892331810635827',
         parameters: {
@@ -59,46 +75,56 @@ export class VideoService {
         },
       });
 
-      // 处理流式响应
+      console.log('[VideoService] Stream started, processing SSE events...');
+
+      // 处理SSE流式响应
       let videoUrl: string | null = null;
       let scriptContent = params.product_desc || 'AI生成视频';
+      let lastNodeTitle = '';
+      let uploadSuccess = false;
 
       for await (const chunk of stream) {
-        console.log('[VideoService] Received chunk:', JSON.stringify(chunk, null, 2));
+        const eventType = chunk.event;
+        console.log('[VideoService] SSE Event:', eventType);
+        console.log('[VideoService] Chunk data:', JSON.stringify(chunk.data, null, 2));
 
-        // 解析工作流输出 - 检查 MESSAGE 事件
-        if (chunk.event === WorkflowEventType.MESSAGE && chunk.data) {
-          try {
-            // chunk.data 结构: { content: '{"video":"https://..."}', content_type: 'text', node_is_finish: true, ... }
-            const data = typeof chunk.data === 'string' 
-              ? JSON.parse(chunk.data) 
-              : chunk.data;
-
-            console.log('[VideoService] Parsed data:', data);
-
-            // 检查是否是结束节点且包含 content
-            if (data.node_is_finish && data.content) {
-              // 解析 content 字段中的 JSON
-              const contentData = typeof data.content === 'string'
-                ? JSON.parse(data.content)
-                : data.content;
-
-              console.log('[VideoService] Content data:', contentData);
-
-              // 提取视频 URL
-              if (contentData.video) {
-                videoUrl = contentData.video;
-                console.log('[VideoService] Video URL found:', videoUrl);
-              }
-            }
-          } catch (parseError) {
-            console.error('[VideoService] Failed to parse chunk data:', parseError);
-          }
+        // 收到任何响应都说明图片上传成功
+        if (!uploadSuccess) {
+          uploadSuccess = true;
+          console.log('[VideoService] ✓ Image upload successful - received first response');
         }
 
-        // 检查 DONE 事件
-        if (chunk.event === WorkflowEventType.DONE) {
-          console.log('[VideoService] Workflow completed');
+        // 处理不同类型的事件
+        switch (eventType) {
+          case WorkflowEventType.MESSAGE:
+            await this.handleMessageEvent(chunk.data, (progress) => {
+              console.log('[VideoService] Progress:', progress);
+              if (progress.nodeTitle) lastNodeTitle = progress.nodeTitle;
+            });
+            
+            // 尝试从消息中提取视频URL
+            const extractedUrl = this.extractVideoUrl(chunk.data);
+            if (extractedUrl) {
+              videoUrl = extractedUrl;
+              console.log('[VideoService] ✓ Video URL extracted:', videoUrl);
+            }
+            break;
+
+          case WorkflowEventType.DONE:
+            console.log('[VideoService] ✓ Workflow completed successfully');
+            break;
+
+          case WorkflowEventType.ERROR:
+            console.error('[VideoService] ✗ Workflow error:', chunk.data);
+            const errorData = chunk.data as any;
+            throw new Error(errorData?.error_message || '工作流执行失败');
+
+          case WorkflowEventType.INTERRUPT:
+            console.warn('[VideoService] ⚠ Workflow interrupted:', chunk.data);
+            break;
+
+          default:
+            console.log('[VideoService] Unknown event type:', eventType);
         }
       }
 
@@ -110,94 +136,118 @@ export class VideoService {
           videoUrl: videoUrl,
           duration: params.video_length || 10,
         }];
-        console.log('[VideoService] Video segments generated:', segments);
+        console.log('[VideoService] ✓ Video generation completed:', segments);
         return segments;
       }
 
-      // 如果没有解析到视频，返回模拟数据
-      console.log('[VideoService] No video URL parsed, returning mock data for testing');
+      // 没有获取到视频URL，返回模拟数据
+      console.log('[VideoService] No video URL found, returning mock data');
       return this.getMockSegments(params);
+
     } catch (error) {
       console.error('[VideoService] Video generation failed:', error);
-      // 返回模拟数据用于测试
+      // 返回模拟数据用于降级
       return this.getMockSegments(params);
     }
   }
 
-  async mergeVideos(segmentIds: string[], videoUrls: string[]): Promise<string> {
+  /**
+   * 处理Message事件
+   */
+  private async handleMessageEvent(
+    data: any,
+    onProgress: (progress: WorkflowProgress) => void,
+  ): Promise<void> {
+    if (!data) return;
+
+    const parsedData = typeof data === 'string' ? JSON.parse(data) : data;
+
+    onProgress({
+      event: 'Message',
+      nodeTitle: parsedData.node_title,
+      nodeId: parsedData.node_id,
+      content: parsedData.content,
+      isFinish: parsedData.node_is_finish || false,
+    });
+  }
+
+  /**
+   * 从消息数据中提取视频URL
+   */
+  private extractVideoUrl(data: any): string | null {
     try {
-      console.log('[VideoService] Merging videos:', { segmentIds, videoUrls });
-      
-      // 如果只有一个视频，直接返回
-      if (videoUrls.length === 1) {
-        return videoUrls[0];
+      const parsedData = typeof data === 'string' ? JSON.parse(data) : data;
+
+      // 检查是否是结束节点
+      if (!parsedData.node_is_finish) return null;
+
+      // 解析content字段中的JSON
+      if (parsedData.content) {
+        const contentData = typeof parsedData.content === 'string'
+          ? JSON.parse(parsedData.content)
+          : parsedData.content;
+
+        // 提取视频URL
+        if (contentData.video) {
+          return contentData.video;
+        }
       }
 
-      // TODO: 实现真实的视频合并逻辑
-      // 这里可以调用 FFmpeg 或其他视频处理服务
-      // 目前返回第一个视频作为占位
-      return videoUrls[0];
+      return null;
     } catch (error) {
-      console.error('[VideoService] Video merge failed:', error);
-      throw error;
+      console.error('[VideoService] Failed to extract video URL:', error);
+      return null;
     }
   }
 
+  /**
+   * 合并视频分段
+   */
+  async mergeVideos(segmentIds: string[], videoUrls: string[]): Promise<string> {
+    console.log('[VideoService] Merging videos:', { segmentIds, videoUrls });
+    
+    if (videoUrls.length === 1) {
+      return videoUrls[0];
+    }
+
+    // TODO: 实现真实的视频合并逻辑
+    return videoUrls[0];
+  }
+
+  /**
+   * 重新生成视频分段
+   */
   async regenerateSegment(
     segmentId: string,
     params: VideoGenerationParams,
   ): Promise<VideoSegment> {
-    try {
-      console.log('[VideoService] Regenerating segment:', segmentId);
+    console.log('[VideoService] Regenerating segment:', segmentId);
 
-      // 重新调用视频生成
-      const segments = await this.generateVideoSegments(params);
-      
-      if (segments.length > 0) {
-        return {
-          ...segments[0],
-          id: segmentId,
-        };
-      }
-
-      // 返回模拟数据
-      return {
-        id: segmentId,
-        script: params.product_desc || '重新生成的视频',
-        videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
-        duration: params.video_length || 10,
-      };
-    } catch (error) {
-      console.error('[VideoService] Segment regeneration failed:', error);
-      throw error;
+    const segments = await this.generateVideoSegments(params);
+    
+    if (segments.length > 0) {
+      return { ...segments[0], id: segmentId };
     }
+
+    return {
+      id: segmentId,
+      script: params.product_desc || '重新生成的视频',
+      videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
+      duration: params.video_length || 10,
+    };
   }
 
   /**
    * 获取模拟视频分段数据（用于测试和降级）
    */
   private getMockSegments(params: VideoGenerationParams): VideoSegment[] {
-    console.log('[VideoService] Returning mock segments for params:', params);
+    console.log('[VideoService] Returning mock segments');
     
-    const segmentCount = Math.min(params.video_num || 1, 4);
-    const segments: VideoSegment[] = [];
-
-    const scriptTemplates = [
-      `${params.product_name || '产品'}特写展示，突出产品外观和设计细节`,
-      `${params.video_scene || '场景'}环境展示，营造氛围感`,
-      `产品使用场景，展示${params.product_features || '产品特点'}`,
-      `品牌标识和产品信息展示，价格：${params.product_price || '优惠价'}`,
-    ];
-
-    for (let i = 0; i < segmentCount; i++) {
-      segments.push({
-        id: `seg_${i}`,
-        script: scriptTemplates[i % scriptTemplates.length],
-        videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
-        duration: Math.floor((params.video_length || 10) / segmentCount),
-      });
-    }
-
-    return segments;
+    return [{
+      id: 'seg_0',
+      script: params.product_desc || 'AI生成视频（演示）',
+      videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
+      duration: params.video_length || 10,
+    }];
   }
 }

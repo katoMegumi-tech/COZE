@@ -9,7 +9,9 @@ import {
   Sparkles,
   ArrowLeft,
   ChevronRight,
+  Loader,
 } from 'lucide-react-taro'
+import { Network } from '@/network'
 
 type CreationTab = 'custom' | 'shop' | 'product'
 type Mode = 'simple' | 'creative'
@@ -23,7 +25,8 @@ interface FormData {
   // 产品创作 & 自定义
   prompt: string
   // 通用参数
-  image: string
+  image: string  // 本地临时路径
+  imageUrl: string  // 上传后的URL
   generationCount: number
   channel: string
   videoLength: number
@@ -43,6 +46,7 @@ const CreatePage: FC = () => {
     generationType: 'shop_promotion',
     prompt: '',
     image: '',
+    imageUrl: '',
     generationCount: 1,
     channel: 'VED3.1',
     videoLength: 8,
@@ -51,6 +55,7 @@ const CreatePage: FC = () => {
     subtitleOption: 'hide',
   })
   const [isGenerating, setIsGenerating] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
 
   useEffect(() => {
     const tab = router.params.tab as CreationTab
@@ -65,29 +70,82 @@ const CreatePage: FC = () => {
 
   const handleChooseImage = async () => {
     try {
+      // 选择图片
       const result = await Taro.chooseImage({
         count: 1,
         sizeType: ['compressed'],
         sourceType: ['album', 'camera'],
       })
-      setFormData({ ...formData, image: result.tempFilePaths[0] })
-    } catch (error) {
-      console.error('选择图片失败', error)
+      
+      const tempFilePath = result.tempFilePaths[0]
+      console.log('[CreatePage] Selected image:', tempFilePath)
+      
+      // 显示本地预览
+      setFormData({ ...formData, image: tempFilePath, imageUrl: '' })
+      
+      // 上传图片到后端
+      setIsUploading(true)
+      Taro.showLoading({ title: '上传中...' })
+      
+      console.log('[CreatePage] Uploading image to server...')
+      
+      const uploadRes = await Network.uploadFile({
+        url: '/api/upload/image',
+        filePath: tempFilePath,
+        name: 'file',
+      })
+      
+      console.log('[CreatePage] Upload response:', uploadRes)
+      
+      const data = typeof uploadRes.data === 'string' 
+        ? JSON.parse(uploadRes.data) 
+        : uploadRes.data
+      
+      if (data?.code === 200 && data.data?.url) {
+        console.log('[CreatePage] ✓ Image uploaded successfully:', data.data.url)
+        
+        // 更新图片URL
+        setFormData(prev => ({
+          ...prev,
+          image: tempFilePath,
+          imageUrl: data.data.url,
+        }))
+        
+        Taro.hideLoading()
+        Taro.showToast({ title: '上传成功', icon: 'success' })
+      } else {
+        throw new Error(data?.msg || '上传失败')
+      }
+    } catch (error: any) {
+      console.error('[CreatePage] Upload error:', error)
+      Taro.hideLoading()
+      Taro.showToast({ title: error.message || '上传失败', icon: 'none' })
+    } finally {
+      setIsUploading(false)
     }
   }
 
   const handleGenerate = async () => {
+    // 检查图片
     if (!formData.image) {
       Taro.showToast({ title: '请先上传图片', icon: 'none' })
+      return
+    }
+    
+    // 检查图片是否已上传
+    if (!formData.imageUrl) {
+      Taro.showToast({ title: '图片正在上传，请稍候', icon: 'none' })
       return
     }
 
     setIsGenerating(true)
     try {
+      console.log('[CreatePage] Starting video generation...')
+      
       // 构建参数并导航到结果页面
       const params = new URLSearchParams()
       params.append('mode', activeTab)
-      params.append('imageUrl', formData.image)
+      params.append('imageUrl', formData.imageUrl)  // 使用上传后的URL
       
       // 店铺创作参数
       if (activeTab === 'shop') {
@@ -109,11 +167,14 @@ const CreatePage: FC = () => {
       params.append('videoFormat', formData.videoFormat)
       params.append('subtitleOption', formData.subtitleOption)
       
+      console.log('[CreatePage] Navigating to result page with params:', params.toString())
+      
       // 导航到结果页面
       Taro.navigateTo({
         url: `/pages/result/index?${params.toString()}`,
       })
     } catch (error) {
+      console.error('[CreatePage] Generate error:', error)
       Taro.showToast({ title: '生成失败，请重试', icon: 'none' })
     } finally {
       setIsGenerating(false)
@@ -185,9 +246,30 @@ const CreatePage: FC = () => {
                   mode="aspectFill"
                   className="w-full h-full"
                 />
+                {/* 上传状态指示器 */}
+                {isUploading && (
+                  <View 
+                    className="absolute inset-0 flex items-center justify-center"
+                    style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}
+                  >
+                    <View className="flex flex-col items-center">
+                      <Loader size={32} color="#a855f7" className="animate-spin" />
+                      <Text className="text-white text-sm mt-2">上传中...</Text>
+                    </View>
+                  </View>
+                )}
+                {/* 上传成功指示器 */}
+                {!isUploading && formData.imageUrl && (
+                  <View 
+                    className="absolute top-2 left-2 rounded-full px-3 py-1"
+                    style={{ backgroundColor: 'rgba(34, 197, 94, 0.8)' }}
+                  >
+                    <Text className="text-white text-xs">✓ 已上传</Text>
+                  </View>
+                )}
                 <View
                   className="absolute top-2 right-2 bg-black bg-opacity-50 rounded-full px-3 py-1"
-                  onClick={() => setFormData({ ...formData, image: '' })}
+                  onClick={() => setFormData({ ...formData, image: '', imageUrl: '' })}
                 >
                   <Text className="text-white text-xs">更换</Text>
                 </View>
@@ -546,17 +628,31 @@ const CreatePage: FC = () => {
         }}
       >
         <View
-          className="rounded-xl py-4 flex items-center justify-center"
+          className="rounded-xl py-4 flex flex-row items-center justify-center gap-2"
           style={{
-            background: isGenerating
+            background: (isGenerating || isUploading || !formData.imageUrl)
               ? '#4a5568'
               : 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)',
           }}
-          onClick={isGenerating ? undefined : handleGenerate}
+          onClick={(isGenerating || isUploading) ? undefined : handleGenerate}
         >
-          <Text className="text-white font-medium text-base">
-            {isGenerating ? '生成中...' : '立即生成视频（50点）'}
-          </Text>
+          {isUploading ? (
+            <>
+              <Loader size={18} color="#a855f7" className="animate-spin" />
+              <Text className="text-gray-300 font-medium text-base">上传中...</Text>
+            </>
+          ) : isGenerating ? (
+            <>
+              <Loader size={18} color="#a855f7" className="animate-spin" />
+              <Text className="text-gray-300 font-medium text-base">生成中...</Text>
+            </>
+          ) : !formData.imageUrl ? (
+            <Text className="text-gray-400 font-medium text-base">
+              {formData.image ? '请等待图片上传' : '请先上传图片'}
+            </Text>
+          ) : (
+            <Text className="text-white font-medium text-base">立即生成视频（50点）</Text>
+          )}
         </View>
       </View>
     </View>

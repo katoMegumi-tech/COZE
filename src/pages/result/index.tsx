@@ -67,19 +67,24 @@ const ResultPage: FC = () => {
       
       // 显示加载进度
       const loadingSteps = [
-        { progress: 20, text: '正在分析图片内容...' },
-        { progress: 40, text: '正在生成视频脚本...' },
+        { progress: 10, text: '正在连接服务器...' },
+        { progress: 20, text: '图片上传成功，开始生成...' },
+        { progress: 40, text: '正在分析图片内容...' },
         { progress: 60, text: '正在生成视频中...' },
         { progress: 80, text: '正在处理视频...' },
       ]
 
+      // 模拟前期进度
       for (const step of loadingSteps) {
         setLoadingProgress(step.progress)
         setLoadingText(step.text)
-        await new Promise(resolve => setTimeout(resolve, 800))
+        await new Promise(resolve => setTimeout(resolve, 600))
       }
 
-      console.log('[ResultPage] Calling API with params:', params)
+      console.log('[ResultPage] Calling API with params:', {
+        ...params,
+        images: params.images?.length ? `${params.images.length} images` : 'no images'
+      })
 
       // 调用后端API
       const res = await Network.request({
@@ -90,8 +95,13 @@ const ResultPage: FC = () => {
 
       console.log('[ResultPage] API response:', res)
 
+      // 解析响应
       const data = typeof res.data === 'string' ? JSON.parse(res.data) : res.data
       console.log('[ResultPage] Parsed response data:', data)
+
+      // 更新进度
+      setLoadingProgress(90)
+      setLoadingText('视频生成完成，正在加载...')
 
       if (data?.code === 200 && data.data?.segments && data.data.segments.length > 0) {
         // 转换后端数据格式
@@ -107,6 +117,8 @@ const ResultPage: FC = () => {
         setVideoSegments(segments)
         setLoadingProgress(100)
         setLoadingText('生成完成！')
+        
+        console.log('[ResultPage] ✓ Video generated successfully')
       } else {
         throw new Error(data?.msg || '视频生成失败，请重试')
       }
@@ -118,11 +130,11 @@ const ResultPage: FC = () => {
       console.error('[ResultPage] Video generation error:', err)
       setErrorMessage(err.message || '视频生成失败')
       
-      // 使用模拟数据
+      // 使用模拟数据（用于演示）
       const mockSegments: VideoSegment[] = [
         {
           id: 'seg_0',
-          script: params.product_desc || 'AI生成视频',
+          script: params.product_desc || 'AI生成视频（演示）',
           videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
           duration: params.video_length || 10,
           confirmed: false,
