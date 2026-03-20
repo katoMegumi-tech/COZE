@@ -7,8 +7,9 @@ import Taro from '@tarojs/taro'
 
 // 后端API配置
 const API_CONFIG = {
-  baseUrl: 'http://192.168.146.161:8080',
+  baseUrl: 'http://192.168.146.161:8080', // 小程序环境使用完整URL
   workflowEndpoint: '/coze/workflow/',
+  proxyEndpoint: '/api/coze/workflow', // H5环境通过后端代理
 }
 
 export interface WorkflowParams {
@@ -180,14 +181,16 @@ export async function runCozeWorkflow(
 
 /**
  * H5环境：使用fetch处理SSE流式响应
+ * 通过NestJS后端代理转发请求，避免CORS问题
  */
 async function runWorkflowWithFetch(
   requestBody: any,
   onProgress?: (progress: WorkflowProgress) => void
 ): Promise<string | null> {
-  const url = `${API_CONFIG.baseUrl}${API_CONFIG.workflowEndpoint}`
+  // H5环境通过项目后端代理
+  const url = API_CONFIG.proxyEndpoint
   
-  console.log('[CozeAPI] Fetching:', url)
+  console.log('[CozeAPI] Fetching (via backend proxy):', url)
   
   const response = await fetch(url, {
     method: 'POST',

@@ -190,6 +190,10 @@ export default defineConfig<'vite'>(async (merge, _env) => {
             target: 'http://localhost:3000',
             changeOrigin: true,
           },
+          '/coze': {
+            target: 'http://192.168.146.161:8080',
+            changeOrigin: true,
+          },
         },
       },
       miniCssExtractPluginOption: {
