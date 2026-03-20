@@ -1,15 +1,14 @@
 /**
  * Coze工作流API调用工具
- * 直接调用Coze工作流接口，处理SSE流式响应
+ * 通过后端代理调用Coze工作流接口，处理SSE流式响应
  */
 
 import Taro from '@tarojs/taro'
 
-// Coze API配置 - TODO: 替换为实际的token
-const COZE_CONFIG = {
-  apiUrl: 'https://api.coze.cn/v3/workflow/run',
-  token: 'pat_your_token_here', // 在这里硬编码token
-  workflowId: '7618892331810635827',
+// 后端API配置
+const API_CONFIG = {
+  baseUrl: 'http://192.168.146.161:8080',
+  workflowEndpoint: '/coze/workflow/',
 }
 
 export interface WorkflowParams {
@@ -69,7 +68,7 @@ export async function imageToBase64(filePath: string): Promise<string> {
 }
 
 /**
- * 调用Coze工作流（SSE流式响应）
+ * 调用后端工作流接口（SSE流式响应）
  * H5环境使用fetch，小程序环境使用Taro.request
  */
 export async function runCozeWorkflow(
@@ -87,22 +86,18 @@ export async function runCozeWorkflow(
   try {
     // 准备请求体
     const requestBody = {
-      workflow_id: COZE_CONFIG.workflowId,
-      parameters: {
-        images: params.images,
-        product_desc: params.product_desc || '',
-        product_features: params.product_features || '',
-        product_name: params.product_name || '',
-        product_price: params.product_price || '',
-        video_aspect_ratio: params.video_aspect_ratio || '16:9',
-        video_length: params.video_length || 10,
-        video_num: params.video_num || 1,
-        video_resolution: params.video_resolution || '720P',
-        video_scene: params.video_scene || '',
-        video_style: params.video_style || '时尚',
-        video_subtitle: params.video_subtitle !== false,
-      },
-      stream: true,
+      images: params.images,
+      product_desc: params.product_desc || '',
+      product_features: params.product_features || '',
+      product_name: params.product_name || '',
+      product_price: params.product_price || '',
+      video_aspect_ratio: params.video_aspect_ratio || '16:9',
+      video_length: params.video_length || 10,
+      video_num: params.video_num || 1,
+      video_resolution: params.video_resolution || '720P',
+      video_scene: params.video_scene || '',
+      video_style: params.video_style || '时尚',
+      video_subtitle: params.video_subtitle !== false,
     }
 
     let videoUrl: string | null = null
@@ -111,7 +106,7 @@ export async function runCozeWorkflow(
       // H5环境：使用fetch处理SSE流
       videoUrl = await runWorkflowWithFetch(requestBody, onProgress)
     } else {
-      // 小程序环境：使用Taro.request（不支持真正的流式，但可以尝试）
+      // 小程序环境：使用Taro.request
       videoUrl = await runWorkflowWithTaro(requestBody, onProgress)
     }
 
@@ -133,10 +128,13 @@ async function runWorkflowWithFetch(
   requestBody: any,
   onProgress?: (progress: WorkflowProgress) => void
 ): Promise<string | null> {
-  const response = await fetch(COZE_CONFIG.apiUrl, {
+  const url = `${API_CONFIG.baseUrl}${API_CONFIG.workflowEndpoint}`
+  
+  console.log('[CozeAPI] Fetching:', url)
+  
+  const response = await fetch(url, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${COZE_CONFIG.token}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(requestBody),
@@ -204,21 +202,22 @@ async function runWorkflowWithTaro(
   requestBody: any,
   onProgress?: (progress: WorkflowProgress) => void
 ): Promise<string | null> {
-  console.log('[CozeAPI] Starting request (Mini Program)')
+  const url = `${API_CONFIG.baseUrl}${API_CONFIG.workflowEndpoint}`
+  
+  console.log('[CozeAPI] Starting request (Mini Program):', url)
 
   // eslint-disable-next-line no-restricted-properties
   const response = await Taro.request({
-    url: COZE_CONFIG.apiUrl,
+    url,
     method: 'POST',
     header: {
-      'Authorization': `Bearer ${COZE_CONFIG.token}`,
       'Content-Type': 'application/json',
     },
     data: requestBody,
     enableChunked: true, // 尝试启用分块传输
   })
 
-  console.log('[CozeAPI] Response received:', response.statusCode)
+  console.log('[CozeAPI] Response received:', response.statusCode, response.data)
 
   if (response.statusCode !== 200) {
     throw new Error(`HTTP error! status: ${response.statusCode}`)
@@ -261,12 +260,16 @@ async function runWorkflowWithTaro(
     // 可能是JSON格式的响应
     const data = responseData as any
     
-    if (data.code === 0 && data.data) {
+    // 后端返回格式适配
+    if (data.code === 0 || data.success) {
       // 尝试从data中提取视频URL
-      if (data.data.video) {
+      if (data.data?.video) {
         return data.data.video
       }
-      if (data.data.output) {
+      if (data.video) {
+        return data.video
+      }
+      if (data.data?.output) {
         // 解析output中的内容
         try {
           const output = typeof data.data.output === 'string'
@@ -279,6 +282,8 @@ async function runWorkflowWithTaro(
           console.warn('[CozeAPI] Failed to parse output:', e)
         }
       }
+    } else if (data.error || data.message) {
+      throw new Error(data.error || data.message)
     }
   }
 
