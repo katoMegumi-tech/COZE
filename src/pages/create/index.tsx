@@ -11,7 +11,7 @@ import {
   ChevronRight,
   Loader,
 } from 'lucide-react-taro'
-import { Network } from '@/network'
+import { imageToBase64 } from '@/utils/coze-workflow'
 
 type CreationTab = 'custom' | 'shop' | 'product'
 type Mode = 'simple' | 'creative'
@@ -26,7 +26,7 @@ interface FormData {
   prompt: string
   // 通用参数
   image: string  // 本地临时路径
-  imageUrl: string  // 上传后的URL
+  imageBase64: string  // base64编码（用于传递给Coze）
   generationCount: number
   channel: string
   videoLength: number
@@ -46,7 +46,7 @@ const CreatePage: FC = () => {
     generationType: 'shop_promotion',
     prompt: '',
     image: '',
-    imageUrl: '',
+    imageBase64: '',
     generationCount: 1,
     channel: 'VED3.1',
     videoLength: 8,
@@ -55,7 +55,7 @@ const CreatePage: FC = () => {
     subtitleOption: 'hide',
   })
   const [isGenerating, setIsGenerating] = useState(false)
-  const [isUploading, setIsUploading] = useState(false)
+  const [isConverting, setIsConverting] = useState(false)
 
   useEffect(() => {
     const tab = router.params.tab as CreationTab
@@ -81,47 +81,34 @@ const CreatePage: FC = () => {
       console.log('[CreatePage] Selected image:', tempFilePath)
       
       // 显示本地预览
-      setFormData({ ...formData, image: tempFilePath, imageUrl: '' })
+      setFormData({ ...formData, image: tempFilePath, imageBase64: '' })
       
-      // 上传图片到后端
-      setIsUploading(true)
-      Taro.showLoading({ title: '上传中...' })
+      // 转换为base64（用于传递给Coze工作流）
+      setIsConverting(true)
+      Taro.showLoading({ title: '处理图片...' })
       
-      console.log('[CreatePage] Uploading image to server...')
-      
-      const uploadRes = await Network.uploadFile({
-        url: '/api/upload/image',
-        filePath: tempFilePath,
-        name: 'file',
-      })
-      
-      console.log('[CreatePage] Upload response:', uploadRes)
-      
-      const data = typeof uploadRes.data === 'string' 
-        ? JSON.parse(uploadRes.data) 
-        : uploadRes.data
-      
-      if (data?.code === 200 && data.data?.url) {
-        console.log('[CreatePage] ✓ Image uploaded successfully:', data.data.url)
+      try {
+        const base64 = await imageToBase64(tempFilePath)
+        console.log('[CreatePage] Image converted to base64, length:', base64.length)
         
-        // 更新图片URL
         setFormData(prev => ({
           ...prev,
           image: tempFilePath,
-          imageUrl: data.data.url,
+          imageBase64: base64,
         }))
         
         Taro.hideLoading()
-        Taro.showToast({ title: '上传成功', icon: 'success' })
-      } else {
-        throw new Error(data?.msg || '上传失败')
+        Taro.showToast({ title: '图片准备完成', icon: 'success' })
+      } catch (convertError) {
+        console.error('[CreatePage] Convert error:', convertError)
+        Taro.hideLoading()
+        Taro.showToast({ title: '图片处理失败', icon: 'none' })
       }
     } catch (error: any) {
-      console.error('[CreatePage] Upload error:', error)
+      console.error('[CreatePage] Choose image error:', error)
       Taro.hideLoading()
-      Taro.showToast({ title: error.message || '上传失败', icon: 'none' })
     } finally {
-      setIsUploading(false)
+      setIsConverting(false)
     }
   }
 
@@ -132,9 +119,9 @@ const CreatePage: FC = () => {
       return
     }
     
-    // 检查图片是否已上传
-    if (!formData.imageUrl) {
-      Taro.showToast({ title: '图片正在上传，请稍候', icon: 'none' })
+    // 检查图片是否已转换
+    if (!formData.imageBase64) {
+      Taro.showToast({ title: '图片正在处理，请稍候', icon: 'none' })
       return
     }
 
@@ -143,35 +130,33 @@ const CreatePage: FC = () => {
       console.log('[CreatePage] Starting video generation...')
       
       // 构建参数并导航到结果页面
-      const params = new URLSearchParams()
-      params.append('mode', activeTab)
-      params.append('imageUrl', formData.imageUrl)  // 使用上传后的URL
-      
-      // 店铺创作参数
-      if (activeTab === 'shop') {
-        params.append('shopName', formData.shopName)
-        params.append('shopAddress', formData.shopAddress)
-        params.append('businessScope', formData.businessScope)
-        params.append('generationType', formData.generationType)
+      // 注意：base64数据可能很长，使用Taro.setStorageSync传递
+      const resultParams = {
+        mode: activeTab,
+        // 店铺创作参数
+        shopName: formData.shopName,
+        shopAddress: formData.shopAddress,
+        businessScope: formData.businessScope,
+        generationType: formData.generationType,
+        // 产品创作/自定义参数
+        prompt: formData.prompt,
+        // 通用参数
+        generationCount: formData.generationCount,
+        videoLength: formData.videoLength,
+        resolution: formData.resolution,
+        videoFormat: formData.videoFormat,
+        subtitleOption: formData.subtitleOption,
       }
       
-      // 产品创作/自定义参数
-      if (activeTab === 'product' || activeTab === 'custom') {
-        params.append('prompt', formData.prompt)
-      }
+      // 将图片base64存储到本地，避免URL过长
+      Taro.setStorageSync('video_gen_image', formData.imageBase64)
+      Taro.setStorageSync('video_gen_params', JSON.stringify(resultParams))
       
-      // 通用参数
-      params.append('generationCount', String(formData.generationCount))
-      params.append('videoLength', String(formData.videoLength))
-      params.append('resolution', formData.resolution)
-      params.append('videoFormat', formData.videoFormat)
-      params.append('subtitleOption', formData.subtitleOption)
-      
-      console.log('[CreatePage] Navigating to result page with params:', params.toString())
+      console.log('[CreatePage] Navigating to result page')
       
       // 导航到结果页面
       Taro.navigateTo({
-        url: `/pages/result/index?${params.toString()}`,
+        url: '/pages/result/index?from=create',
       })
     } catch (error) {
       console.error('[CreatePage] Generate error:', error)
@@ -182,7 +167,6 @@ const CreatePage: FC = () => {
   }
 
   const handleOptimizePrompt = async () => {
-    // TODO: 调用AI润色接口
     Taro.showToast({ title: 'AI润色功能开发中', icon: 'none' })
   }
 
@@ -246,30 +230,30 @@ const CreatePage: FC = () => {
                   mode="aspectFill"
                   className="w-full h-full"
                 />
-                {/* 上传状态指示器 */}
-                {isUploading && (
+                {/* 转换状态指示器 */}
+                {isConverting && (
                   <View 
                     className="absolute inset-0 flex items-center justify-center"
                     style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}
                   >
                     <View className="flex flex-col items-center">
                       <Loader size={32} color="#a855f7" className="animate-spin" />
-                      <Text className="text-white text-sm mt-2">上传中...</Text>
+                      <Text className="text-white text-sm mt-2">处理中...</Text>
                     </View>
                   </View>
                 )}
-                {/* 上传成功指示器 */}
-                {!isUploading && formData.imageUrl && (
+                {/* 准备完成指示器 */}
+                {!isConverting && formData.imageBase64 && (
                   <View 
                     className="absolute top-2 left-2 rounded-full px-3 py-1"
                     style={{ backgroundColor: 'rgba(34, 197, 94, 0.8)' }}
                   >
-                    <Text className="text-white text-xs">✓ 已上传</Text>
+                    <Text className="text-white text-xs">✓ 已准备</Text>
                   </View>
                 )}
                 <View
                   className="absolute top-2 right-2 bg-black bg-opacity-50 rounded-full px-3 py-1"
-                  onClick={() => setFormData({ ...formData, image: '', imageUrl: '' })}
+                  onClick={() => setFormData({ ...formData, image: '', imageBase64: '' })}
                 >
                   <Text className="text-white text-xs">更换</Text>
                 </View>
@@ -630,25 +614,25 @@ const CreatePage: FC = () => {
         <View
           className="rounded-xl py-4 flex flex-row items-center justify-center gap-2"
           style={{
-            background: (isGenerating || isUploading || !formData.imageUrl)
+            background: (isGenerating || isConverting || !formData.imageBase64)
               ? '#4a5568'
               : 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)',
           }}
-          onClick={(isGenerating || isUploading) ? undefined : handleGenerate}
+          onClick={(isGenerating || isConverting) ? undefined : handleGenerate}
         >
-          {isUploading ? (
+          {isConverting ? (
             <>
               <Loader size={18} color="#a855f7" className="animate-spin" />
-              <Text className="text-gray-300 font-medium text-base">上传中...</Text>
+              <Text className="text-gray-300 font-medium text-base">处理图片...</Text>
             </>
           ) : isGenerating ? (
             <>
               <Loader size={18} color="#a855f7" className="animate-spin" />
               <Text className="text-gray-300 font-medium text-base">生成中...</Text>
             </>
-          ) : !formData.imageUrl ? (
+          ) : !formData.imageBase64 ? (
             <Text className="text-gray-400 font-medium text-base">
-              {formData.image ? '请等待图片上传' : '请先上传图片'}
+              {formData.image ? '请等待图片处理' : '请先上传图片'}
             </Text>
           ) : (
             <Text className="text-white font-medium text-base">立即生成视频（50点）</Text>

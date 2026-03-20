@@ -1,5 +1,5 @@
 import { View, Text, ScrollView, Video } from '@tarojs/components'
-import Taro, { useRouter } from '@tarojs/taro'
+import Taro from '@tarojs/taro'
 import type { FC } from 'react'
 import { useState, useEffect } from 'react'
 import {
@@ -10,6 +10,7 @@ import {
   Share2,
 } from 'lucide-react-taro'
 import { Network } from '@/network'
+import { runCozeWorkflow, WorkflowProgress } from '@/utils/coze-workflow'
 
 type VideoSegment = {
   id: string
@@ -21,98 +22,132 @@ type VideoSegment = {
 }
 
 const ResultPage: FC = () => {
-  const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
   const [loadingProgress, setLoadingProgress] = useState(0)
-  const [loadingText, setLoadingText] = useState('正在分析图片内容...')
+  const [loadingText, setLoadingText] = useState('正在准备...')
   const [videoSegments, setVideoSegments] = useState<VideoSegment[]>([])
   const [isRegenerating, setIsRegenerating] = useState(false)
   const [generationParams, setGenerationParams] = useState<any>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [currentNode, setCurrentNode] = useState<string>('')
 
   useEffect(() => {
-    // 获取路由参数
-    const params = router.params
-    console.log('[ResultPage] Route params:', params)
+    // 从本地存储读取参数
+    const imageBase64 = Taro.getStorageSync('video_gen_image')
+    const paramsStr = Taro.getStorageSync('video_gen_params')
+    
+    console.log('[ResultPage] Image base64 length:', imageBase64?.length)
+    console.log('[ResultPage] Params string:', paramsStr)
+    
+    if (!imageBase64 || !paramsStr) {
+      setErrorMessage('缺少生成参数，请重新选择图片')
+      setIsLoading(false)
+      return
+    }
+    
+    const params = JSON.parse(paramsStr)
+    console.log('[ResultPage] Parsed params:', params)
     
     // 解析参数
     const parsedParams = {
-      images: params.imageUrl ? [decodeURIComponent(params.imageUrl)] : [],
+      images: [imageBase64],  // 使用base64图片
       mode: params.mode,
       // 产品相关参数
-      product_name: params.shopName || params.productName || '',
+      product_name: params.shopName || '',
       product_desc: params.prompt || params.businessScope || '',
-      product_features: params.productFeature || '',
-      product_price: params.priceRecommendation || '',
+      product_features: '',
+      product_price: '',
       // 视频相关参数
-      video_scene: params.shopAddress || params.backgroundScene || '',
-      video_style: params.creationStyle || '时尚',
+      video_scene: params.shopAddress || '',
+      video_style: '时尚',
       video_aspect_ratio: params.videoFormat === 'horizontal' ? '16:9' : '9:16',
-      video_length: parseInt(params.videoLength || '10'),
-      video_num: parseInt(params.generationCount || '1'),
+      video_length: params.videoLength || 10,
+      video_num: params.generationCount || 1,
       video_resolution: params.resolution || '720P',
       video_subtitle: params.subtitleOption !== 'hide',
     }
     
     setGenerationParams(parsedParams)
     
-    // 调用视频生成API
+    // 清除本地存储（避免重复使用）
+    Taro.removeStorageSync('video_gen_image')
+    Taro.removeStorageSync('video_gen_params')
+    
+    // 调用视频生成
     generateVideo(parsedParams)
   }, [])
 
-  // 调用后端视频生成API
+  // 调用Coze工作流生成视频
   const generateVideo = async (params: any) => {
     try {
       setErrorMessage(null)
-      
-      // 显示加载进度
-      const loadingSteps = [
-        { progress: 10, text: '正在连接服务器...' },
-        { progress: 20, text: '图片上传成功，开始生成...' },
-        { progress: 40, text: '正在分析图片内容...' },
-        { progress: 60, text: '正在生成视频中...' },
-        { progress: 80, text: '正在处理视频...' },
-      ]
+      setLoadingProgress(5)
+      setLoadingText('正在连接Coze服务...')
 
-      // 模拟前期进度
-      for (const step of loadingSteps) {
-        setLoadingProgress(step.progress)
-        setLoadingText(step.text)
-        await new Promise(resolve => setTimeout(resolve, 600))
-      }
-
-      console.log('[ResultPage] Calling API with params:', {
+      console.log('[ResultPage] Starting workflow with params:', {
         ...params,
         images: params.images?.length ? `${params.images.length} images` : 'no images'
       })
 
-      // 调用后端API
-      const res = await Network.request({
-        url: '/api/video/generate',
-        method: 'POST',
-        data: params,
-      })
+      // 检查图片是否为本地路径，如果是则转换为base64
+      let imageUrls = params.images
+      if (params.images?.length > 0 && params.images[0].startsWith('http')) {
+        // 已经是URL，直接使用
+        console.log('[ResultPage] Using image URL:', params.images[0])
+      }
 
-      console.log('[ResultPage] API response:', res)
+      // 进度回调
+      const handleProgress = (progress: WorkflowProgress) => {
+        console.log('[ResultPage] Progress:', progress)
+        
+        // 更新节点信息
+        if (progress.nodeTitle) {
+          setCurrentNode(progress.nodeTitle)
+        }
+        
+        // 更新进度文本
+        if (progress.event === 'Message') {
+          if (progress.nodeTitle === 'End' || progress.isFinish) {
+            setLoadingProgress(90)
+            setLoadingText('视频生成完成，正在加载...')
+          } else {
+            setLoadingProgress(50)
+            setLoadingText(`正在执行: ${progress.nodeTitle || '处理中'}...`)
+          }
+        } else if (progress.event === 'Done') {
+          setLoadingProgress(95)
+          setLoadingText('工作流完成')
+        }
+      }
 
-      // 解析响应
-      const data = typeof res.data === 'string' ? JSON.parse(res.data) : res.data
-      console.log('[ResultPage] Parsed response data:', data)
+      // 调用Coze工作流
+      const result = await runCozeWorkflow({
+        images: imageUrls,
+        product_desc: params.product_desc,
+        product_features: params.product_features,
+        product_name: params.product_name,
+        product_price: params.product_price,
+        video_aspect_ratio: params.video_aspect_ratio,
+        video_length: params.video_length,
+        video_num: params.video_num,
+        video_resolution: params.video_resolution,
+        video_scene: params.video_scene,
+        video_style: params.video_style,
+        video_subtitle: params.video_subtitle,
+      }, handleProgress)
 
-      // 更新进度
-      setLoadingProgress(90)
-      setLoadingText('视频生成完成，正在加载...')
+      console.log('[ResultPage] Workflow result:', result)
 
-      if (data?.code === 200 && data.data?.segments && data.data.segments.length > 0) {
-        // 转换后端数据格式
-        const segments: VideoSegment[] = data.data.segments.map((seg: any) => ({
-          id: seg.id,
-          script: seg.script,
-          videoUrl: seg.videoUrl,
-          duration: seg.duration,
+      if (result.success && result.videoUrl) {
+        // 成功获取视频URL
+        const segments: VideoSegment[] = [{
+          id: 'seg_0',
+          script: params.product_desc || 'AI生成视频',
+          videoUrl: result.videoUrl,
+          duration: params.video_length || 10,
           confirmed: false,
           regenerating: false,
-        }))
+        }]
         
         setVideoSegments(segments)
         setLoadingProgress(100)
@@ -120,7 +155,7 @@ const ResultPage: FC = () => {
         
         console.log('[ResultPage] ✓ Video generated successfully')
       } else {
-        throw new Error(data?.msg || '视频生成失败，请重试')
+        throw new Error(result.error || '视频生成失败')
       }
 
       setTimeout(() => {
@@ -166,34 +201,36 @@ const ResultPage: FC = () => {
     setIsRegenerating(true)
     
     try {
-      const res = await Network.request({
-        url: '/api/video/regenerate',
-        method: 'POST',
-        data: {
-          segmentId: videoSegments[0]?.id,
-          ...generationParams,
-        },
+      const result = await runCozeWorkflow({
+        images: generationParams.images,
+        product_desc: generationParams.product_desc,
+        product_features: generationParams.product_features,
+        product_name: generationParams.product_name,
+        product_price: generationParams.product_price,
+        video_aspect_ratio: generationParams.video_aspect_ratio,
+        video_length: generationParams.video_length,
+        video_num: generationParams.video_num,
+        video_resolution: generationParams.video_resolution,
+        video_scene: generationParams.video_scene,
+        video_style: generationParams.video_style,
+        video_subtitle: generationParams.video_subtitle,
       })
 
-      const data = typeof res.data === 'string' ? JSON.parse(res.data) : res.data
-      
-      if (data?.code === 200 && data.data?.segment) {
-        const newSegment = data.data.segment
-        
+      if (result.success && result.videoUrl) {
         setVideoSegments([{
-          id: newSegment.id || 'seg_0',
-          videoUrl: newSegment.videoUrl,
-          script: newSegment.script,
-          duration: newSegment.duration,
+          id: 'seg_0',
+          script: generationParams.product_desc || '重新生成的视频',
+          videoUrl: result.videoUrl,
+          duration: generationParams.video_length || 10,
           confirmed: false,
           regenerating: false,
         }])
         
         Taro.showToast({ title: '重新生成成功', icon: 'success' })
       } else {
-        throw new Error(data?.msg || '重新生成失败')
+        throw new Error(result.error || '重新生成失败')
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('[ResultPage] Regenerate error:', err)
       Taro.showToast({ title: '重新生成失败', icon: 'none' })
     } finally {
@@ -277,7 +314,10 @@ const ResultPage: FC = () => {
             </View>
           </View>
           <Text className="text-white text-base mb-2">{loadingText}</Text>
-          <Text className="text-gray-500 text-sm">请稍候，AI正在为您创作...</Text>
+          {currentNode && (
+            <Text className="text-gray-500 text-sm">当前节点: {currentNode}</Text>
+          )}
+          <Text className="text-gray-500 text-sm mt-2">请稍候，Coze正在为您创作...</Text>
         </View>
       )}
 
