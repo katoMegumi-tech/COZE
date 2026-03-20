@@ -9,8 +9,9 @@ import {
   ChevronRight,
   ArrowLeft,
   Sparkles,
+  Loader,
 } from 'lucide-react-taro'
-import { Network } from '@/network'
+import { imageToBase64 } from '@/utils/coze-workflow'
 
 type CreationTab = 'custom' | 'shop' | 'product'
 type Mode = 'simple' | 'creative'
@@ -20,6 +21,7 @@ const ShopCreatePage: FC = () => {
   const [mode, setMode] = useState<Mode>('simple')
   const [formData, setFormData] = useState({
     image: '',
+    imageBase64: '',
     shopName: '',
     shopAddress: '',
     businessScope: '',
@@ -32,6 +34,7 @@ const ShopCreatePage: FC = () => {
     videoFormat: 'vertical' as 'vertical' | 'horizontal',
     subtitleOption: 'hide' as 'hide' | 'show',
   })
+  const [isConverting, setIsConverting] = useState(false)
 
   const handleBack = () => {
     Taro.navigateBack()
@@ -45,55 +48,54 @@ const ShopCreatePage: FC = () => {
     }
   }
 
-  // 从素材库选择图片
-  const handleChooseFromAlbum = async () => {
+  // 处理图片选择
+  const handleImageSelect = async (sourceType: 'album' | 'camera') => {
     try {
       const result = await Taro.chooseImage({
         count: 1,
         sizeType: ['compressed'],
-        sourceType: ['album'],
+        sourceType: [sourceType],
       })
-      setFormData({ ...formData, image: result.tempFilePaths[0] })
+      
+      const tempFilePath = result.tempFilePaths[0]
+      console.log('[ShopPage] Selected image:', tempFilePath)
+      
+      setFormData({ ...formData, image: tempFilePath, imageBase64: '' })
+      
+      // 转换为base64
+      setIsConverting(true)
+      Taro.showLoading({ title: '处理图片...' })
+      
+      try {
+        const base64 = await imageToBase64(tempFilePath)
+        console.log('[ShopPage] Image converted to base64, length:', base64.length)
+        
+        setFormData(prev => ({
+          ...prev,
+          image: tempFilePath,
+          imageBase64: base64,
+        }))
+        
+        Taro.hideLoading()
+        Taro.showToast({ title: '图片准备完成', icon: 'success' })
+      } catch (convertError) {
+        console.error('[ShopPage] Convert error:', convertError)
+        Taro.hideLoading()
+        Taro.showToast({ title: '图片处理失败', icon: 'none' })
+      }
     } catch (error) {
       console.error('选择图片失败', error)
+      Taro.hideLoading()
+    } finally {
+      setIsConverting(false)
     }
   }
+
+  // 从素材库选择图片
+  const handleChooseFromAlbum = () => handleImageSelect('album')
 
   // 拍照上传
-  const handleTakePhoto = async () => {
-    try {
-      const result = await Taro.chooseImage({
-        count: 1,
-        sizeType: ['compressed'],
-        sourceType: ['camera'],
-      })
-      setFormData({ ...formData, image: result.tempFilePaths[0] })
-    } catch (error) {
-      console.error('拍照失败', error)
-    }
-  }
-
-  // 上传图片到对象存储
-  const uploadImage = async (tempFilePath: string): Promise<string | null> => {
-    try {
-      const res = await Network.uploadFile({
-        url: '/api/upload/image',
-        filePath: tempFilePath,
-        name: 'file',
-      })
-      console.log('上传结果:', res)
-      // res.data 可能是字符串或对象，需要处理
-      const data = typeof res.data === 'string' ? JSON.parse(res.data) : res.data
-      console.log('解析后的数据:', data)
-      if (data?.code === 200 && data.data?.url) {
-        return data.data.url
-      }
-      return null
-    } catch (error) {
-      console.error('上传图片失败:', error)
-      return null
-    }
-  }
+  const handleTakePhoto = () => handleImageSelect('camera')
 
   // 优化提示词
   const handleOptimizePrompt = async () => {
@@ -102,7 +104,6 @@ const ShopCreatePage: FC = () => {
       return
     }
     Taro.showToast({ title: 'AI优化中...', icon: 'loading' })
-    // TODO: 调用后端AI优化接口
     setTimeout(() => {
       Taro.hideToast()
       Taro.showToast({ title: '优化完成', icon: 'success' })
@@ -113,6 +114,11 @@ const ShopCreatePage: FC = () => {
   const handleGenerate = async () => {
     if (!formData.image) {
       Taro.showToast({ title: '请先上传图片', icon: 'none' })
+      return
+    }
+    
+    if (!formData.imageBase64) {
+      Taro.showToast({ title: '图片正在处理，请稍候', icon: 'none' })
       return
     }
     
@@ -129,29 +135,26 @@ const ShopCreatePage: FC = () => {
       }
     }
 
-    // 上传图片
-    const imageUrl = await uploadImage(formData.image)
-    if (!imageUrl) {
-      // 上传失败时提供测试模式选项
-      Taro.showModal({
-        title: '图片上传失败',
-        content: '是否使用测试模式直接预览结果页面？',
-        success: (res) => {
-          if (res.confirm) {
-            // 使用测试URL跳转
-            Taro.navigateTo({
-              url: `/pages/result/index?mode=${mode}&imageUrl=${encodeURIComponent('https://via.placeholder.com/400x300')}&shopName=${encodeURIComponent(formData.shopName)}&shopAddress=${encodeURIComponent(formData.shopAddress)}&businessScope=${encodeURIComponent(formData.businessScope)}&prompt=${encodeURIComponent(formData.prompt)}&generationType=${formData.generationType}`
-            })
-          }
-        }
-      })
-      return
+    // 存储参数到本地
+    const params = {
+      mode: activeTab,
+      shopName: formData.shopName,
+      shopAddress: formData.shopAddress,
+      businessScope: formData.businessScope,
+      prompt: formData.prompt,
+      generationType: formData.generationType,
+      generationCount: formData.generationCount,
+      videoLength: formData.videoLength,
+      resolution: formData.resolution,
+      videoFormat: formData.videoFormat,
+      subtitleOption: formData.subtitleOption,
     }
-
+    
+    Taro.setStorageSync('video_gen_image', formData.imageBase64)
+    Taro.setStorageSync('video_gen_params', JSON.stringify(params))
+    
     // 跳转到结果页面
-    Taro.navigateTo({
-      url: `/pages/result/index?mode=${mode}&imageUrl=${encodeURIComponent(imageUrl)}&shopName=${encodeURIComponent(formData.shopName)}&shopAddress=${encodeURIComponent(formData.shopAddress)}&businessScope=${encodeURIComponent(formData.businessScope)}&prompt=${encodeURIComponent(formData.prompt)}&generationType=${formData.generationType}`
-    })
+    Taro.navigateTo({ url: '/pages/result/index?from=shop' })
   }
 
   const tabs = [
@@ -200,12 +203,36 @@ const ShopCreatePage: FC = () => {
           >
             {formData.image ? (
               <View className="w-full aspect-video relative rounded-lg overflow-hidden">
-                <TaroImage src={formData.image} mode="aspectFill" className="w-full h-full" />
+                <TaroImage
+                  src={formData.image}
+                  mode="aspectFill"
+                  className="w-full h-full"
+                />
+                {/* 转换状态 */}
+                {isConverting && (
+                  <View 
+                    className="absolute inset-0 flex items-center justify-center"
+                    style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}
+                  >
+                    <View className="flex flex-col items-center">
+                      <Loader size={32} color="#a855f7" className="animate-spin" />
+                      <Text className="text-white text-sm mt-2">处理中...</Text>
+                    </View>
+                  </View>
+                )}
+                {!isConverting && formData.imageBase64 && (
+                  <View 
+                    className="absolute top-2 left-2 rounded-full px-3 py-1"
+                    style={{ backgroundColor: 'rgba(34, 197, 94, 0.8)' }}
+                  >
+                    <Text className="text-white text-xs">✓ 已准备</Text>
+                  </View>
+                )}
                 <View
                   className="absolute top-2 right-2 bg-black bg-opacity-50 rounded-full px-3 py-1"
                   onClick={(e) => {
                     e.stopPropagation()
-                    setFormData({ ...formData, image: '' })
+                    setFormData({ ...formData, image: '', imageBase64: '' })
                   }}
                 >
                   <Text className="text-white text-xs">更换</Text>
@@ -223,20 +250,14 @@ const ShopCreatePage: FC = () => {
                 <View className="w-full flex flex-row items-center justify-center gap-4 mt-3">
                   <View
                     className="flex flex-row items-center gap-2 bg-gray-800 rounded-lg px-4 py-2"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleChooseFromAlbum()
-                    }}
+                    onClick={handleChooseFromAlbum}
                   >
                     <Image size={14} color="#ffffff" />
                     <Text className="text-white text-xs">素材库</Text>
                   </View>
                   <View
                     className="flex flex-row items-center gap-2 bg-gray-800 rounded-lg px-4 py-2"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleTakePhoto()
-                    }}
+                    onClick={handleTakePhoto}
                   >
                     <Camera size={14} color="#ffffff" />
                     <Text className="text-white text-xs">直接拍</Text>
@@ -273,115 +294,6 @@ const ShopCreatePage: FC = () => {
           </View>
         </View>
 
-        {/* 小白模式表单 */}
-        {mode === 'simple' && (
-          <>
-            {/* 生成类型 */}
-            <View className="mb-4">
-              <Text className="text-white text-sm font-medium mb-2">生成类型</Text>
-              <View className="flex flex-row gap-2">
-                <View
-                  className="rounded-lg px-4 py-2"
-                  style={{
-                    background: formData.generationType === 'shop_promotion'
-                      ? 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)'
-                      : '#1f2937',
-                  }}
-                  onClick={() => setFormData({ ...formData, generationType: 'shop_promotion' })}
-                >
-                  <Text className="text-white text-sm">店铺宣传</Text>
-                </View>
-                <View
-                  className="rounded-lg px-4 py-2"
-                  style={{
-                    background: formData.generationType === 'model_promotion'
-                      ? 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)'
-                      : '#1f2937',
-                  }}
-                  onClick={() => setFormData({ ...formData, generationType: 'model_promotion' })}
-                >
-                  <Text className="text-white text-sm">模特推店</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* 店铺名称 */}
-            <View className="mb-4">
-              <Text className="text-white text-sm font-medium mb-2">店铺名称</Text>
-              <View className="bg-gray-800 rounded-lg px-4 py-3">
-                <Input
-                  className="w-full bg-transparent text-white placeholder-gray-400 text-sm"
-                  placeholder="请输入店铺名称"
-                  value={formData.shopName}
-                  onInput={(e) => setFormData({ ...formData, shopName: e.detail.value })}
-                />
-              </View>
-            </View>
-
-            {/* 店铺地址 */}
-            <View className="mb-4">
-              <Text className="text-white text-sm font-medium mb-2">店铺地址</Text>
-              <View className="bg-gray-800 rounded-lg px-4 py-3">
-                <Input
-                  className="w-full bg-transparent text-white placeholder-gray-400 text-sm"
-                  placeholder="输入你店开在那如某某路多少号等"
-                  value={formData.shopAddress}
-                  onInput={(e) => setFormData({ ...formData, shopAddress: e.detail.value })}
-                />
-              </View>
-            </View>
-
-            {/* 主营业务 */}
-            <View className="mb-4">
-              <Text className="text-white text-sm font-medium mb-2">主营业务</Text>
-              <View className="bg-gray-800 rounded-lg px-4 py-3">
-                <Input
-                  className="w-full bg-transparent text-white placeholder-gray-400 text-sm"
-                  placeholder="输入你主营业务或产品"
-                  value={formData.businessScope}
-                  onInput={(e) => setFormData({ ...formData, businessScope: e.detail.value })}
-                />
-              </View>
-            </View>
-          </>
-        )}
-
-        {/* 创意模式表单 */}
-        {mode === 'creative' && (
-          <>
-            {/* 描述提示词 */}
-            <View className="mb-4">
-              <Text className="text-white text-sm font-medium mb-2">描述提示词</Text>
-              <View className="bg-gray-800 rounded-xl p-4">
-                <Textarea
-                  style={{ width: '100%', minHeight: '120px', backgroundColor: 'transparent', color: '#ffffff' }}
-                  placeholder="请输入您想要生成的视频描述..."
-                  placeholderStyle="color: #9CA3AF"
-                  value={formData.prompt}
-                  onInput={(e) => setFormData({ ...formData, prompt: e.detail.value })}
-                  maxlength={2000}
-                />
-                <View className="flex flex-row items-center justify-between mt-2">
-                  <Text className="text-gray-500 text-xs">AI润色</Text>
-                  <Text className="text-gray-500 text-xs">{formData.prompt.length}/2000</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* 优化提示词按钮 */}
-            <View className="mb-4">
-              <View
-                className="rounded-xl py-3 flex flex-row items-center justify-center gap-2"
-                style={{ background: 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)' }}
-                onClick={handleOptimizePrompt}
-              >
-                <Sparkles size={16} color="#ffffff" />
-                <Text className="text-white font-medium text-sm">优化提示词</Text>
-              </View>
-            </View>
-          </>
-        )}
-
         {/* 广告栏 */}
         <View className="bg-gradient-to-r from-purple-900 to-pink-900 rounded-xl p-4 mb-4 flex flex-row items-center justify-between">
           <View className="flex flex-row items-center gap-3">
@@ -389,57 +301,143 @@ const ShopCreatePage: FC = () => {
               <Text className="text-purple-600 font-bold text-xs">千问</Text>
             </View>
             <View className="flex flex-col">
-              <Text className="text-white text-xs font-medium">千问AI生图秒级出图！输入文字就生成，</Text>
+              <Text className="text-white text-xs font-medium">千问APP</Text>
               <Text className="text-gray-300 text-xs">拍照问答，生活常识科普，一拍全知</Text>
             </View>
           </View>
           <ChevronRight size={16} color="#9CA3AF" />
         </View>
 
-        {/* 视频参数 */}
+        {/* 店铺信息表单 */}
         <View className="mb-4">
-          <Text className="text-white text-sm font-medium mb-2">生成数量</Text>
-          <View className="flex flex-row gap-2 mb-4">
-            {[1, 2, 3, 4, 5].map((count) => (
-              <View
-                key={count}
-                className="rounded-lg px-4 py-2"
-                style={{
-                  background: formData.generationCount === count
-                    ? 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)'
-                    : '#1f2937',
-                }}
-                onClick={() => setFormData({ ...formData, generationCount: count })}
-              >
-                <Text className="text-white text-sm">{count}</Text>
-              </View>
-            ))}
-          </View>
-
-          <Text className="text-white text-sm font-medium mb-2">选择渠道</Text>
+          <Text className="text-white text-sm font-medium mb-2">生成类型</Text>
           <View className="flex flex-row gap-2 mb-4">
             <View
               className="rounded-lg px-4 py-2"
-              style={{ background: 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)' }}
+              style={{
+                background: formData.generationType === 'shop_promotion'
+                  ? 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)'
+                  : '#1f2937',
+              }}
+              onClick={() =>
+                setFormData({ ...formData, generationType: 'shop_promotion' })
+              }
             >
-              <Text className="text-white text-sm">VED3.1</Text>
+              <Text className="text-white text-sm">店铺宣传</Text>
+            </View>
+            <View
+              className="rounded-lg px-4 py-2"
+              style={{
+                background: formData.generationType === 'model_promotion'
+                  ? 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)'
+                  : '#1f2937',
+              }}
+              onClick={() =>
+                setFormData({ ...formData, generationType: 'model_promotion' })
+              }
+            >
+              <Text className="text-white text-sm">模特推店</Text>
             </View>
           </View>
 
+          {mode === 'simple' ? (
+            <>
+              <Text className="text-white text-sm font-medium mb-2">店铺名称</Text>
+              <View className="bg-gray-800 rounded-lg px-4 py-3 mb-4">
+                <Input
+                  className="w-full bg-transparent text-white placeholder-gray-400 text-sm"
+                  placeholder="请输入店铺名称"
+                  value={formData.shopName}
+                  onInput={(e) =>
+                    setFormData({ ...formData, shopName: e.detail.value })
+                  }
+                />
+              </View>
+
+              <Text className="text-white text-sm font-medium mb-2">店铺地址</Text>
+              <View className="bg-gray-800 rounded-lg px-4 py-3 mb-4">
+                <Input
+                  className="w-full bg-transparent text-white placeholder-gray-400 text-sm"
+                  placeholder="输入你店开在那如某某路多少号等"
+                  value={formData.shopAddress}
+                  onInput={(e) =>
+                    setFormData({ ...formData, shopAddress: e.detail.value })
+                  }
+                />
+              </View>
+
+              <Text className="text-white text-sm font-medium mb-2">主营业务</Text>
+              <View className="bg-gray-800 rounded-lg px-4 py-3">
+                <Input
+                  className="w-full bg-transparent text-white placeholder-gray-400 text-sm"
+                  placeholder="输入你主营业务或产品"
+                  value={formData.businessScope}
+                  onInput={(e) =>
+                    setFormData({ ...formData, businessScope: e.detail.value })
+                  }
+                />
+              </View>
+            </>
+          ) : (
+            <>
+              <Text className="text-white text-sm font-medium mb-2">描述提示词</Text>
+              <View className="bg-gray-800 rounded-xl p-4 mb-2">
+                <Textarea
+                  style={{
+                    width: '100%',
+                    minHeight: '100px',
+                    backgroundColor: 'transparent',
+                    color: '#ffffff',
+                    fontSize: '14px',
+                  }}
+                  placeholder="请输入描述提示词"
+                  maxlength={2000}
+                  value={formData.prompt}
+                  onInput={(e) =>
+                    setFormData({ ...formData, prompt: e.detail.value })
+                  }
+                />
+                <View className="flex flex-row items-center justify-between mt-2">
+                  <Text className="text-gray-500 text-xs">
+                    {formData.prompt.length}/2000
+                  </Text>
+                  <View className="flex flex-row gap-2">
+                    <View
+                      className="flex flex-row items-center gap-1 bg-gray-700 rounded-lg px-3 py-1"
+                      onClick={handleOptimizePrompt}
+                    >
+                      <Sparkles size={12} color="#ec4899" />
+                      <Text className="text-pink-400 text-xs">AI润色</Text>
+                    </View>
+                    <View
+                      className="bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg px-3 py-1"
+                      onClick={handleOptimizePrompt}
+                    >
+                      <Text className="text-white text-xs">优化提示词</Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            </>
+          )}
+        </View>
+
+        {/* 视频参数 */}
+        <View className="mb-4">
           <Text className="text-white text-sm font-medium mb-2">视频长度</Text>
           <View className="flex flex-row gap-2 mb-4">
-            {[5, 8, 10, 12].map((length) => (
+            {[5, 8, 10, 12].map((len) => (
               <View
-                key={length}
+                key={len}
                 className="rounded-lg px-4 py-2"
                 style={{
-                  background: formData.videoLength === length
+                  background: formData.videoLength === len
                     ? 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)'
                     : '#1f2937',
                 }}
-                onClick={() => setFormData({ ...formData, videoLength: length })}
+                onClick={() => setFormData({ ...formData, videoLength: len })}
               >
-                <Text className="text-white text-sm">{length}s</Text>
+                <Text className="text-white text-sm">{len}s</Text>
               </View>
             ))}
           </View>
@@ -461,61 +459,9 @@ const ShopCreatePage: FC = () => {
               </View>
             ))}
           </View>
-
-          <Text className="text-white text-sm font-medium mb-2">视频形式</Text>
-          <View className="flex flex-row gap-2 mb-4">
-            <View
-              className="rounded-lg px-4 py-2"
-              style={{
-                background: formData.videoFormat === 'vertical'
-                  ? 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)'
-                  : '#1f2937',
-              }}
-              onClick={() => setFormData({ ...formData, videoFormat: 'vertical' })}
-            >
-              <Text className="text-white text-sm">竖屏</Text>
-            </View>
-            <View
-              className="rounded-lg px-4 py-2"
-              style={{
-                background: formData.videoFormat === 'horizontal'
-                  ? 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)'
-                  : '#1f2937',
-              }}
-              onClick={() => setFormData({ ...formData, videoFormat: 'horizontal' })}
-            >
-              <Text className="text-white text-sm">横屏</Text>
-            </View>
-          </View>
-
-          <Text className="text-white text-sm font-medium mb-2">屏蔽字幕</Text>
-          <View className="flex flex-row gap-2">
-            <View
-              className="rounded-lg px-4 py-2"
-              style={{
-                background: formData.subtitleOption === 'hide'
-                  ? 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)'
-                  : '#1f2937',
-              }}
-              onClick={() => setFormData({ ...formData, subtitleOption: 'hide' })}
-            >
-              <Text className="text-white text-sm">屏蔽</Text>
-            </View>
-            <View
-              className="rounded-lg px-4 py-2"
-              style={{
-                background: formData.subtitleOption === 'show'
-                  ? 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)'
-                  : '#1f2937',
-              }}
-              onClick={() => setFormData({ ...formData, subtitleOption: 'show' })}
-            >
-              <Text className="text-white text-sm">不屏蔽</Text>
-            </View>
-          </View>
         </View>
 
-        <Text className="text-gray-500 text-xs mb-4">内容涉及AI人工智能</Text>
+        <Text className="text-gray-500 text-xs mb-2">内容涉及AI人工智能</Text>
       </ScrollView>
 
       {/* 底部生成按钮 */}
@@ -531,11 +477,26 @@ const ShopCreatePage: FC = () => {
         }}
       >
         <View
-          className="rounded-xl py-4 flex items-center justify-center"
-          style={{ background: 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)' }}
-          onClick={handleGenerate}
+          className="rounded-xl py-4 flex flex-row items-center justify-center gap-2"
+          style={{
+            background: (isConverting || !formData.imageBase64)
+              ? '#4a5568'
+              : 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)',
+          }}
+          onClick={isConverting ? undefined : handleGenerate}
         >
-          <Text className="text-white font-medium text-base">立即生成视频（50点）</Text>
+          {isConverting ? (
+            <>
+              <Loader size={18} color="#a855f7" className="animate-spin" />
+              <Text className="text-gray-300 font-medium text-base">处理图片...</Text>
+            </>
+          ) : !formData.imageBase64 ? (
+            <Text className="text-gray-400 font-medium text-base">
+              {formData.image ? '请等待图片处理' : '请先上传图片'}
+            </Text>
+          ) : (
+            <Text className="text-white font-medium text-base">立即生成视频（50点）</Text>
+          )}
         </View>
       </View>
     </View>
