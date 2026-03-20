@@ -84,9 +84,35 @@ const CreatePage: FC = () => {
 
     setIsGenerating(true)
     try {
-      // TODO: 调用后端视频生成接口
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      Taro.showToast({ title: '视频生成成功', icon: 'success' })
+      // 构建参数并导航到结果页面
+      const params = new URLSearchParams()
+      params.append('mode', activeTab)
+      params.append('imageUrl', formData.image)
+      
+      // 店铺创作参数
+      if (activeTab === 'shop') {
+        params.append('shopName', formData.shopName)
+        params.append('shopAddress', formData.shopAddress)
+        params.append('businessScope', formData.businessScope)
+        params.append('generationType', formData.generationType)
+      }
+      
+      // 产品创作/自定义参数
+      if (activeTab === 'product' || activeTab === 'custom') {
+        params.append('prompt', formData.prompt)
+      }
+      
+      // 通用参数
+      params.append('generationCount', String(formData.generationCount))
+      params.append('videoLength', String(formData.videoLength))
+      params.append('resolution', formData.resolution)
+      params.append('videoFormat', formData.videoFormat)
+      params.append('subtitleOption', formData.subtitleOption)
+      
+      // 导航到结果页面
+      Taro.navigateTo({
+        url: `/pages/result/index?${params.toString()}`,
+      })
     } catch (error) {
       Taro.showToast({ title: '生成失败，请重试', icon: 'none' })
     } finally {

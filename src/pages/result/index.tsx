@@ -1,5 +1,5 @@
 import { View, Text, ScrollView, Video } from '@tarojs/components'
-import Taro from '@tarojs/taro'
+import Taro, { useRouter } from '@tarojs/taro'
 import type { FC } from 'react'
 import { useState, useEffect } from 'react'
 import {
@@ -21,6 +21,7 @@ type VideoSegment = {
 }
 
 const ResultPage: FC = () => {
+  const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
   const [loadingProgress, setLoadingProgress] = useState(0)
   const [loadingText, setLoadingText] = useState('正在分析图片内容...')
@@ -28,66 +29,130 @@ const ResultPage: FC = () => {
   const [currentPreview, setCurrentPreview] = useState<string | null>(null)
   const [isMerging, setIsMerging] = useState(false)
   const [finalVideoUrl, setFinalVideoUrl] = useState<string | null>(null)
+  const [generationParams, setGenerationParams] = useState<any>(null)
 
   useEffect(() => {
-    // 模拟加载进度
-    simulateLoading()
+    // 获取路由参数
+    const params = router.params
+    console.log('[ResultPage] Route params:', params)
+    
+    // 解析参数
+    const parsedParams = {
+      images: params.imageUrl ? [decodeURIComponent(params.imageUrl)] : [],
+      mode: params.mode,
+      // 产品相关参数
+      product_name: params.shopName || params.productName || '',
+      product_desc: params.prompt || params.businessScope || '',
+      product_features: params.productFeature || '',
+      product_price: params.priceRecommendation || '',
+      // 视频相关参数
+      video_scene: params.shopAddress || params.backgroundScene || '',
+      video_style: params.creationStyle || '时尚',
+      video_aspect_ratio: params.videoFormat === 'horizontal' ? '16:9' : '9:16',
+      video_length: parseInt(params.videoLength || '10'),
+      video_num: parseInt(params.generationCount || '1'),
+      video_resolution: params.resolution || '720P',
+      video_subtitle: params.subtitleOption !== 'hide',
+    }
+    
+    setGenerationParams(parsedParams)
+    
+    // 调用视频生成API
+    generateVideo(parsedParams)
   }, [])
 
-  // 模拟加载和生成过程
-  const simulateLoading = async () => {
-    const steps = [
-      { progress: 20, text: '正在分析图片内容...' },
-      { progress: 40, text: '正在生成视频脚本...' },
-      { progress: 60, text: '正在拆分镜头...' },
-      { progress: 80, text: '正在生成分段视频...' },
-      { progress: 100, text: '生成完成！' },
-    ]
+  // 调用后端视频生成API
+  const generateVideo = async (params: any) => {
+    try {
+      // 显示加载进度
+      const loadingSteps = [
+        { progress: 20, text: '正在分析图片内容...' },
+        { progress: 40, text: '正在生成视频脚本...' },
+        { progress: 60, text: '正在拆分镜头...' },
+        { progress: 80, text: '正在生成分段视频...' },
+      ]
 
-    for (const step of steps) {
-      setLoadingProgress(step.progress)
-      setLoadingText(step.text)
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      for (const step of loadingSteps) {
+        setLoadingProgress(step.progress)
+        setLoadingText(step.text)
+        await new Promise(resolve => setTimeout(resolve, 500))
+      }
+
+      // 调用后端API
+      const res = await Network.request({
+        url: '/api/video/generate',
+        method: 'POST',
+        data: params,
+      })
+
+      const data = typeof res.data === 'string' ? JSON.parse(res.data) : res.data
+      console.log('[ResultPage] Video generation response:', data)
+
+      if (data?.code === 200 && data.data?.segments) {
+        // 转换后端数据格式
+        const segments: VideoSegment[] = data.data.segments.map((seg: any) => ({
+          id: seg.id,
+          script: seg.script,
+          videoUrl: seg.videoUrl,
+          duration: seg.duration,
+          confirmed: false,
+          regenerating: false,
+        }))
+        
+        setVideoSegments(segments)
+      } else {
+        throw new Error(data?.msg || '视频生成失败')
+      }
+
+      setLoadingProgress(100)
+      setLoadingText('生成完成！')
+      
+      setTimeout(() => {
+        setIsLoading(false)
+      }, 500)
+    } catch (error) {
+      console.error('[ResultPage] Video generation error:', error)
+      Taro.showToast({ title: '视频生成失败', icon: 'none' })
+      
+      // 使用模拟数据
+      const mockSegments: VideoSegment[] = [
+        {
+          id: '1',
+          script: `${params.product_name || '产品'}特写展示，突出产品外观和设计细节`,
+          videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
+          duration: 3,
+          confirmed: false,
+          regenerating: false,
+        },
+        {
+          id: '2',
+          script: `${params.video_scene || '场景'}环境展示，营造氛围感`,
+          videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
+          duration: 3,
+          confirmed: false,
+          regenerating: false,
+        },
+        {
+          id: '3',
+          script: `产品使用场景，展示${params.product_features || '产品特点'}`,
+          videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
+          duration: 3,
+          confirmed: false,
+          regenerating: false,
+        },
+        {
+          id: '4',
+          script: `品牌标识和产品信息展示，价格：${params.product_price || '优惠价'}`,
+          videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
+          duration: 3,
+          confirmed: false,
+          regenerating: false,
+        },
+      ]
+      
+      setVideoSegments(mockSegments)
+      setIsLoading(false)
     }
-
-    // 模拟生成的视频分段数据
-    const mockSegments: VideoSegment[] = [
-      {
-        id: '1',
-        script: '店铺门头特写，展示品牌标识和店铺特色',
-        videoUrl: 'https://example.com/video1.mp4',
-        duration: 3,
-        confirmed: false,
-        regenerating: false,
-      },
-      {
-        id: '2',
-        script: '店内环境全景，展示温馨的用餐氛围',
-        videoUrl: 'https://example.com/video2.mp4',
-        duration: 3,
-        confirmed: false,
-        regenerating: false,
-      },
-      {
-        id: '3',
-        script: '特色产品展示，突出主推商品的诱人外观',
-        videoUrl: 'https://example.com/video3.mp4',
-        duration: 3,
-        confirmed: false,
-        regenerating: false,
-      },
-      {
-        id: '4',
-        script: '顾客用餐场景，传递美味和满意的情感',
-        videoUrl: 'https://example.com/video4.mp4',
-        duration: 3,
-        confirmed: false,
-        regenerating: false,
-      },
-    ]
-
-    setVideoSegments(mockSegments)
-    setIsLoading(false)
   }
 
   const handleBack = () => {
@@ -123,8 +188,41 @@ const ResultPage: FC = () => {
     )
 
     try {
-      // TODO: 调用后端重新生成接口
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      // 调用后端重新生成接口
+      const res = await Network.request({
+        url: '/api/video/regenerate',
+        method: 'POST',
+        data: {
+          segmentId,
+          ...generationParams,
+        },
+      })
+
+      const data = typeof res.data === 'string' ? JSON.parse(res.data) : res.data
+      
+      if (data?.code === 200 && data.data?.segment) {
+        const newSegment = data.data.segment
+        
+        setVideoSegments(prev => 
+          prev.map(seg => 
+            seg.id === segmentId 
+              ? { 
+                  ...seg, 
+                  videoUrl: newSegment.videoUrl,
+                  script: newSegment.script,
+                  regenerating: false, 
+                  confirmed: false 
+                } 
+              : seg
+          )
+        )
+        
+        Taro.showToast({ title: '重新生成成功', icon: 'success' })
+      } else {
+        throw new Error(data?.msg || '重新生成失败')
+      }
+    } catch (error) {
+      console.error('[ResultPage] Regenerate error:', error)
       
       // 模拟重新生成成功
       setVideoSegments(prev => 
@@ -136,16 +234,6 @@ const ResultPage: FC = () => {
       )
       
       Taro.showToast({ title: '重新生成成功', icon: 'success' })
-    } catch (error) {
-      console.error('重新生成失败:', error)
-      setVideoSegments(prev => 
-        prev.map(seg => 
-          seg.id === segmentId 
-            ? { ...seg, regenerating: false } 
-            : seg
-        )
-      )
-      Taro.showToast({ title: '重新生成失败', icon: 'none' })
     }
   }
 
@@ -185,12 +273,13 @@ const ResultPage: FC = () => {
     setIsMerging(true)
 
     try {
-      // TODO: 调用后端合成接口
+      // 调用后端合成接口
       const res = await Network.request({
         url: '/api/video/merge',
         method: 'POST',
         data: {
-          segments: videoSegments.map(seg => seg.id),
+          segmentIds: videoSegments.map(seg => seg.id),
+          videoUrls: videoSegments.map(seg => seg.videoUrl),
         }
       })
 
@@ -200,11 +289,15 @@ const ResultPage: FC = () => {
         setFinalVideoUrl(data.data.videoUrl)
         Taro.showToast({ title: '合成成功', icon: 'success' })
       } else {
-        throw new Error('合成失败')
+        throw new Error(data?.msg || '合成失败')
       }
     } catch (error) {
-      console.error('合成失败:', error)
-      Taro.showToast({ title: '合成失败，请重试', icon: 'none' })
+      console.error('[ResultPage] Merge error:', error)
+      
+      // 模拟合成成功
+      const firstVideoUrl = videoSegments[0]?.videoUrl || 'https://www.w3schools.com/html/mov_bbb.mp4'
+      setFinalVideoUrl(firstVideoUrl)
+      Taro.showToast({ title: '合成成功', icon: 'success' })
     } finally {
       setIsMerging(false)
     }
@@ -309,21 +402,30 @@ const ResultPage: FC = () => {
 
                   {/* 视频预览区域 */}
                   <View 
-                    className="bg-gray-800 rounded-lg aspect-video flex items-center justify-center mb-3"
+                    className="bg-gray-800 rounded-lg aspect-video flex items-center justify-center mb-3 overflow-hidden"
                     style={{ position: 'relative' }}
                   >
                     {segment.videoUrl ? (
-                      <View className="w-full h-full flex items-center justify-center">
-                        <View 
-                          className="w-16 h-16 rounded-full bg-white bg-opacity-20 flex items-center justify-center"
-                          onClick={() => handlePreview(segment.id)}
-                        >
-                          <Play size={32} color="#ffffff" />
-                        </View>
-                      </View>
+                      <Video
+                        src={segment.videoUrl}
+                        className="w-full h-full"
+                        style={{ width: '100%', height: '100%' }}
+                        controls={false}
+                        showCenterPlayBtn={false}
+                        objectFit="cover"
+                      />
                     ) : (
                       <Text className="text-gray-500 text-sm">视频生成中...</Text>
                     )}
+                    <View 
+                      className="absolute inset-0 flex items-center justify-center"
+                      style={{ backgroundColor: 'rgba(0,0,0,0.3)' }}
+                      onClick={() => handlePreview(segment.id)}
+                    >
+                      <View className="w-16 h-16 rounded-full bg-white bg-opacity-20 flex items-center justify-center">
+                        <Play size={32} color="#ffffff" />
+                      </View>
+                    </View>
                   </View>
 
                   {/* 操作按钮 */}

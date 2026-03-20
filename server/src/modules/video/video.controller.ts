@@ -4,11 +4,8 @@ import {
   Body,
   HttpCode,
   HttpStatus,
-  Req,
 } from '@nestjs/common';
-import { Request } from 'express';
 import { VideoService } from './video.service';
-import { HeaderUtils } from 'coze-coding-dev-sdk';
 
 @Controller('video')
 export class VideoController {
@@ -19,45 +16,40 @@ export class VideoController {
   async generateVideo(
     @Body()
     body: {
-      prompt: string;
-      imageUrl?: string;
-      duration?: number;
-      resolution?: '480p' | '720p' | '1080p';
-      ratio?: '16:9' | '9:16' | '1:1';
-      generateAudio?: boolean;
+      images: string[];
+      product_desc?: string;
+      product_features?: string;
+      product_name?: string;
+      product_price?: string;
+      video_aspect_ratio?: '16:9' | '9:16' | '1:1';
+      video_length?: number;
+      video_num?: number;
+      video_resolution?: '480P' | '720P' | '1080P';
+      video_scene?: string;
+      video_style?: string;
+      video_subtitle?: boolean;
     },
-    @Req() req: Request,
   ) {
     console.log('[VideoController] Received video generation request:', body);
 
-    if (!body.prompt || body.prompt.trim() === '') {
+    if (!body.images || body.images.length === 0) {
       return {
         code: 400,
-        msg: '请输入提示词',
+        msg: '请上传至少一张图片',
         data: null,
       };
     }
 
     try {
-      const customHeaders = HeaderUtils.extractForwardHeaders(
-        req.headers as Record<string, string>,
-      );
-      const result = await this.videoService.generateVideo(
-        {
-          prompt: body.prompt,
-          imageUrl: body.imageUrl,
-          duration: body.duration,
-          resolution: body.resolution,
-          ratio: body.ratio,
-          generateAudio: body.generateAudio,
-        },
-        customHeaders,
-      );
+      const segments = await this.videoService.generateVideoSegments(body);
 
       return {
         code: 200,
         msg: '视频生成成功',
-        data: result,
+        data: {
+          segments,
+          totalCount: segments.length,
+        },
       };
     } catch (error) {
       console.error('[VideoController] Video generation error:', error);
@@ -69,31 +61,89 @@ export class VideoController {
     }
   }
 
-  @Post('status')
+  @Post('merge')
   @HttpCode(HttpStatus.OK)
-  async checkStatus(@Body('taskId') taskId: string) {
-    console.log('[VideoController] Received status check request:', { taskId });
+  async mergeVideos(
+    @Body()
+    body: {
+      segmentIds: string[];
+      videoUrls: string[];
+    },
+  ) {
+    console.log('[VideoController] Received merge request:', body);
 
-    if (!taskId) {
+    if (!body.segmentIds || body.segmentIds.length === 0) {
       return {
         code: 400,
-        msg: '请提供任务ID',
+        msg: '请提供视频分段ID',
         data: null,
       };
     }
 
     try {
-      const result = await this.videoService.checkVideoStatus(taskId);
+      const videoUrl = await this.videoService.mergeVideos(
+        body.segmentIds,
+        body.videoUrls,
+      );
+
       return {
         code: 200,
-        msg: '查询成功',
-        data: result,
+        msg: '视频合成成功',
+        data: {
+          videoUrl,
+        },
       };
     } catch (error) {
-      console.error('[VideoController] Status check error:', error);
+      console.error('[VideoController] Video merge error:', error);
       return {
         code: 500,
-        msg: '查询失败，请重试',
+        msg: '视频合成失败，请重试',
+        data: null,
+      };
+    }
+  }
+
+  @Post('regenerate')
+  @HttpCode(HttpStatus.OK)
+  async regenerateSegment(
+    @Body()
+    body: {
+      segmentId: string;
+      images: string[];
+      product_desc?: string;
+      product_features?: string;
+      product_name?: string;
+      product_price?: string;
+    },
+  ) {
+    console.log('[VideoController] Received regenerate request:', body);
+
+    try {
+      // 重新生成单个视频段
+      const segments = await this.videoService.generateVideoSegments({
+        images: body.images,
+        product_desc: body.product_desc,
+        product_features: body.product_features,
+        product_name: body.product_name,
+        product_price: body.product_price,
+        video_length: 3,
+        video_num: 1,
+      });
+
+      const newSegment = segments[0];
+
+      return {
+        code: 200,
+        msg: '重新生成成功',
+        data: {
+          segment: newSegment,
+        },
+      };
+    } catch (error) {
+      console.error('[VideoController] Regenerate error:', error);
+      return {
+        code: 500,
+        msg: '重新生成失败，请重试',
         data: null,
       };
     }
