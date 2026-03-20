@@ -43,10 +43,64 @@ export interface WorkflowResult {
 
 /**
  * 将本地图片文件转换为base64
+ * H5环境使用fetch，小程序环境使用FileSystemManager
  */
 export async function imageToBase64(filePath: string): Promise<string> {
+  const isH5 = Taro.getEnv() === Taro.ENV_TYPE.WEB
+  
+  console.log('[CozeAPI] Converting image to base64, env:', isH5 ? 'H5' : 'Mini Program')
+  
+  if (isH5) {
+    // H5环境：使用fetch获取图片并转为base64
+    return imageToBase64H5(filePath)
+  } else {
+    // 小程序环境：使用FileSystemManager
+    return imageToBase64Native(filePath)
+  }
+}
+
+/**
+ * H5环境：使用fetch获取图片并转为base64
+ */
+async function imageToBase64H5(filePath: string): Promise<string> {
+  try {
+    console.log('[CozeAPI] H5: Fetching image from', filePath)
+    
+    // 使用fetch获取图片blob
+    const response = await fetch(filePath)
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image: ${response.status}`)
+    }
+    
+    const blob = await response.blob()
+    
+    // 转换blob为base64
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        const base64 = reader.result as string
+        console.log('[CozeAPI] H5: Image converted, length:', base64.length)
+        resolve(base64)
+      }
+      reader.onerror = (error) => {
+        console.error('[CozeAPI] H5: FileReader error:', error)
+        reject(new Error('Failed to read image as base64'))
+      }
+      reader.readAsDataURL(blob)
+    })
+  } catch (error) {
+    console.error('[CozeAPI] H5: Failed to convert image to base64:', error)
+    throw error
+  }
+}
+
+/**
+ * 小程序环境：使用FileSystemManager读取base64
+ */
+async function imageToBase64Native(filePath: string): Promise<string> {
   try {
     const fileSystemManager = Taro.getFileSystemManager()
+    
     const base64 = await new Promise<string>((resolve, reject) => {
       fileSystemManager.readFile({
         filePath,
@@ -60,9 +114,12 @@ export async function imageToBase64(filePath: string): Promise<string> {
     const ext = filePath.split('.').pop()?.toLowerCase() || 'jpg'
     const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg'
     
-    return `data:${mimeType};base64,${base64}`
+    const result = `data:${mimeType};base64,${base64}`
+    console.log('[CozeAPI] Native: Image converted, length:', result.length)
+    
+    return result
   } catch (error) {
-    console.error('[CozeAPI] Failed to convert image to base64:', error)
+    console.error('[CozeAPI] Native: Failed to convert image to base64:', error)
     throw error
   }
 }
