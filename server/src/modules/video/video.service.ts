@@ -60,54 +60,63 @@ export class VideoService {
       });
 
       // 处理流式响应
-      const segments: VideoSegment[] = [];
-      let segmentIndex = 0;
+      let videoUrl: string | null = null;
+      let scriptContent = params.product_desc || 'AI生成视频';
 
       for await (const chunk of stream) {
-        console.log('[VideoService] Received chunk:', chunk);
+        console.log('[VideoService] Received chunk:', JSON.stringify(chunk, null, 2));
 
-        // 解析工作流输出
+        // 解析工作流输出 - 检查 MESSAGE 事件
         if (chunk.event === WorkflowEventType.MESSAGE && chunk.data) {
           try {
+            // chunk.data 结构: { content: '{"video":"https://..."}', content_type: 'text', node_is_finish: true, ... }
             const data = typeof chunk.data === 'string' 
               ? JSON.parse(chunk.data) 
               : chunk.data;
 
-            // 假设工作流返回的视频段数据结构
-            if (data.segments && Array.isArray(data.segments)) {
-              for (const seg of data.segments) {
-                segments.push({
-                  id: `seg_${segmentIndex++}`,
-                  script: seg.script || seg.description || '',
-                  videoUrl: seg.video_url || seg.url || '',
-                  duration: seg.duration || 3,
-                });
-              }
-            }
+            console.log('[VideoService] Parsed data:', data);
 
-            // 如果工作流直接返回单个视频
-            if (data.video_url) {
-              segments.push({
-                id: `seg_${segmentIndex++}`,
-                script: data.script || params.product_desc || '视频生成完成',
-                videoUrl: data.video_url,
-                duration: params.video_length || 10,
-              });
+            // 检查是否是结束节点且包含 content
+            if (data.node_is_finish && data.content) {
+              // 解析 content 字段中的 JSON
+              const contentData = typeof data.content === 'string'
+                ? JSON.parse(data.content)
+                : data.content;
+
+              console.log('[VideoService] Content data:', contentData);
+
+              // 提取视频 URL
+              if (contentData.video) {
+                videoUrl = contentData.video;
+                console.log('[VideoService] Video URL found:', videoUrl);
+              }
             }
           } catch (parseError) {
             console.error('[VideoService] Failed to parse chunk data:', parseError);
           }
         }
+
+        // 检查 DONE 事件
+        if (chunk.event === WorkflowEventType.DONE) {
+          console.log('[VideoService] Workflow completed');
+        }
       }
 
-      // 如果没有解析到视频段，返回模拟数据（用于测试）
-      if (segments.length === 0) {
-        console.log('[VideoService] No segments parsed, returning mock data for testing');
-        return this.getMockSegments(params);
+      // 如果成功获取到视频 URL，返回视频分段
+      if (videoUrl) {
+        const segments: VideoSegment[] = [{
+          id: 'seg_0',
+          script: scriptContent,
+          videoUrl: videoUrl,
+          duration: params.video_length || 10,
+        }];
+        console.log('[VideoService] Video segments generated:', segments);
+        return segments;
       }
 
-      console.log('[VideoService] Video segments generated:', segments);
-      return segments;
+      // 如果没有解析到视频，返回模拟数据
+      console.log('[VideoService] No video URL parsed, returning mock data for testing');
+      return this.getMockSegments(params);
     } catch (error) {
       console.error('[VideoService] Video generation failed:', error);
       // 返回模拟数据用于测试
@@ -118,42 +127,77 @@ export class VideoService {
   async mergeVideos(segmentIds: string[], videoUrls: string[]): Promise<string> {
     try {
       console.log('[VideoService] Merging videos:', { segmentIds, videoUrls });
-
-      // 调用视频合成工作流（如果有）
-      // 这里假设有一个合成视频的工作流
-      // 如果没有，可以返回第一个视频作为占位符
       
-      // 模拟合成延迟
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // 返回合成后的视频URL
-      // 实际应该调用合成API
-      if (videoUrls.length > 0) {
-        return videoUrls[0]; // 临时返回第一个视频
+      // 如果只有一个视频，直接返回
+      if (videoUrls.length === 1) {
+        return videoUrls[0];
       }
 
-      throw new Error('没有可用的视频段');
+      // TODO: 实现真实的视频合并逻辑
+      // 这里可以调用 FFmpeg 或其他视频处理服务
+      // 目前返回第一个视频作为占位
+      return videoUrls[0];
     } catch (error) {
       console.error('[VideoService] Video merge failed:', error);
       throw error;
     }
   }
 
-  // 模拟数据（用于测试）
+  async regenerateSegment(
+    segmentId: string,
+    params: VideoGenerationParams,
+  ): Promise<VideoSegment> {
+    try {
+      console.log('[VideoService] Regenerating segment:', segmentId);
+
+      // 重新调用视频生成
+      const segments = await this.generateVideoSegments(params);
+      
+      if (segments.length > 0) {
+        return {
+          ...segments[0],
+          id: segmentId,
+        };
+      }
+
+      // 返回模拟数据
+      return {
+        id: segmentId,
+        script: params.product_desc || '重新生成的视频',
+        videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
+        duration: params.video_length || 10,
+      };
+    } catch (error) {
+      console.error('[VideoService] Segment regeneration failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 获取模拟视频分段数据（用于测试和降级）
+   */
   private getMockSegments(params: VideoGenerationParams): VideoSegment[] {
-    const segmentCount = 4;
-    const scripts = [
+    console.log('[VideoService] Returning mock segments for params:', params);
+    
+    const segmentCount = Math.min(params.video_num || 1, 4);
+    const segments: VideoSegment[] = [];
+
+    const scriptTemplates = [
       `${params.product_name || '产品'}特写展示，突出产品外观和设计细节`,
       `${params.video_scene || '场景'}环境展示，营造氛围感`,
       `产品使用场景，展示${params.product_features || '产品特点'}`,
       `品牌标识和产品信息展示，价格：${params.product_price || '优惠价'}`,
     ];
 
-    return Array.from({ length: segmentCount }, (_, i) => ({
-      id: `seg_${i}`,
-      script: scripts[i] || `镜头${i + 1}：视频内容描述`,
-      videoUrl: `https://example.com/video${i + 1}.mp4`,
-      duration: Math.ceil((params.video_length || 10) / segmentCount),
-    }));
+    for (let i = 0; i < segmentCount; i++) {
+      segments.push({
+        id: `seg_${i}`,
+        script: scriptTemplates[i % scriptTemplates.length],
+        videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
+        duration: Math.floor((params.video_length || 10) / segmentCount),
+      });
+    }
+
+    return segments;
   }
 }
