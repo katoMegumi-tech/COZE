@@ -1,53 +1,246 @@
-# Coze Mini Program
+# AI视频生成器小程序
 
-这是一个基于 [Taro 4](https://docs.taro.zone/docs/) + [Nest.js](https://nestjs.com/) 的前后端分离项目，由扣子编程 CLI 创建。
+一款基于 AI 的视频生成器微信小程序，支持文字生成视频、图片生成视频功能，面向 C 端用户（商家、创作者）。
+
+## 项目概述
+
+本项目是一个完整的 AI 视频生成解决方案，用户可以通过简单的文字描述或上传图片，快速生成专业级别的营销视频。项目采用前后端分离架构，前端使用 Taro 框架实现跨端兼容，后端使用 NestJS 提供稳定的 API 服务。
+
+### 核心功能
+
+- 🎬 **视频生成**：支持文字转视频、图片转视频
+- 📝 **多种创作模式**：自定义创作、店铺创作、产品创作
+- 🤖 **AI 提示词优化**：智能润色和优化用户输入的描述
+- 📱 **跨端支持**：同时支持 H5 和微信小程序
+- 🎨 **视频参数定制**：分辨率、时长、比例、风格等可配置
+
+---
 
 ## 技术栈
 
-- **整体框架**: Taro 4.1.9
-- **语言**: TypeScript 5.4.5
-- **渲染**: React 18.0.0
-- **样式**: TailwindCSS 4.1.18
-- **Tailwind 适配层**: weapp-tailwindcss 4.9.2
-- **状态管理**: Zustand 5.0.9
-- **图标库**: lucide-react-taro latest
-- **工程化**: Vite 4.2.0
-- **包管理**: pnpm
-- **运行时**: Node.js >= 18
-- **服务端**: NestJS 10.4.15
-- **数据库 ORM**: Drizzle ORM 0.45.1
-- **类型校验**: Zod 4.3.5
+| 类别 | 技术 | 版本 |
+|------|------|------|
+| 前端框架 | Taro | 4.1.9 |
+| UI 框架 | React | 18.0.0 |
+| 开发语言 | TypeScript | 5.4.5 |
+| 样式方案 | TailwindCSS | 4.1.18 |
+| 小程序适配 | weapp-tailwindcss | 4.9.2 |
+| 图标库 | lucide-react-taro | latest |
+| 后端框架 | NestJS | 10.4.15 |
+| HTTP 客户端 | Axios + @nestjs/axios | latest |
+| 包管理器 | pnpm | - |
+| 运行时 | Node.js | >= 18 |
+
+---
 
 ## 项目结构
 
 ```
-├── .cozeproj/                # Coze 平台配置
-│   └── scripts/              # 构建和运行脚本
-├── config/                   # Taro 构建配置
-│   ├── index.ts              # 主配置文件
-│   ├── dev.ts                # 开发环境配置
-│   └── prod.ts               # 生产环境配置
-├── server/                   # NestJS 后端服务
+├── config/                        # Taro 构建配置
+│   ├── index.ts                   # 主配置文件（含 Vite 代理配置）
+│   ├── dev.ts                     # 开发环境配置
+│   └── prod.ts                    # 生产环境配置
+│
+├── server/                        # NestJS 后端服务
 │   └── src/
-│       ├── main.ts           # 服务入口
-│       ├── app.module.ts     # 根模块
-│       ├── app.controller.ts # 应用控制器
-│       └── app.service.ts    # 应用服务
-├── src/                      # 前端源码
-│   ├── pages/                # 页面组件
-│   ├── presets/              # 框架预置逻辑（无需读取，如无必要不改动）
-│   ├── utils/                # 工具函数
-│   ├── network.ts            # 封装好的网络请求工具
-│   ├── app.ts                # 应用入口
-│   ├── app.config.ts         # 应用配置
-│   └── app.css               # 全局样式
-├── types/                    # TypeScript 类型定义
-├── key/                      # 小程序密钥（CI 上传用）
-├── .env.local                # 环境变量
-└── project.config.json       # 微信小程序项目配置
+│       ├── main.ts                # 服务入口（端口 3000）
+│       ├── app.module.ts          # 根模块
+│       ├── app.controller.ts      # 健康检查接口
+│       ├── app.service.ts         # 基础服务
+│       ├── interceptors/          # 拦截器
+│       │   └── http-status.interceptor.ts
+│       └── modules/               # 业务模块
+│           ├── ai/                # AI 服务模块
+│           │   ├── ai.controller.ts
+│           │   ├── ai.service.ts
+│           │   └── ai.module.ts
+│           ├── coze/              # Coze 工作流代理模块 ⭐
+│           │   ├── coze.controller.ts
+│           │   ├── coze.service.ts
+│           │   └── coze.module.ts
+│           ├── template/          # 模板模块
+│           ├── upload/            # 上传模块
+│           └── video/             # 视频模块
+│
+├── src/                           # Taro 前端源码
+│   ├── app.tsx                    # 应用入口
+│   ├── app.config.ts              # 应用配置（TabBar、页面路由）
+│   ├── app.css                    # 全局样式
+│   │
+│   ├── pages/                     # 页面组件
+│   │   ├── index/                 # 首页（创作入口）
+│   │   ├── create/                # 创作页面（选择创作类型）
+│   │   ├── custom/                # 自定义创作
+│   │   ├── shop/                  # 店铺创作
+│   │   ├── product/               # 产品创作
+│   │   ├── result/                # 生成结果展示 ⭐
+│   │   ├── material/              # 素材库
+│   │   ├── character/             # 角色管理
+│   │   ├── works/                 # 作品列表
+│   │   └── profile/               # 个人中心
+│   │
+│   ├── components/                # 组件库
+│   │   └── ui/                    # shadcn/ui 组件（50+）
+│   │       ├── button.tsx
+│   │       ├── card.tsx
+│   │       ├── dialog.tsx
+│   │       └── ...
+│   │
+│   ├── utils/                     # 工具函数
+│   │   └── coze-workflow.ts       # Coze 工作流调用工具 ⭐
+│   │
+│   ├── lib/                       # 工具库
+│   │   ├── utils.ts
+│   │   ├── platform.ts
+│   │   └── hooks/
+│   │
+│   ├── network.ts                 # 网络请求封装
+│   └── assets/                    # 静态资源
+│       └── tabbar/                # TabBar 图标
+│
+├── types/                         # TypeScript 类型定义
+├── key/                           # 小程序密钥（CI 上传）
+├── .env.local                     # 环境变量
+├── project.config.json            # 微信小程序配置
+└── design_guidelines.md           # 设计规范文档
 ```
 
+---
+
+## 核心模块说明
+
+### 1. 前端页面流程
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│    首页     │────►│   创作页    │────►│  具体创作   │────►│   结果页    │
+│  (index)    │     │  (create)   │     │(shop/product│     │  (result)   │
+└─────────────┘     └─────────────┘     │  /custom)   │     └─────────────┘
+                                        └─────────────┘
+```
+
+**页面职责：**
+
+| 页面 | 路由 | 功能 |
+|------|------|------|
+| 首页 | `/pages/index/index` | 应用入口，展示 TabBar |
+| 创作页 | `/pages/create/index` | 选择创作类型（自定义/店铺/产品） |
+| 自定义创作 | `/pages/custom/index` | 自由输入描述，生成视频 |
+| 店铺创作 | `/pages/shop/index` | 输入店铺信息，生成店铺宣传视频 |
+| 产品创作 | `/pages/product/index` | 上传产品图片，生成产品展示视频 |
+| 结果页 | `/pages/result/index` | 展示生成的视频，支持下载分享 |
+| 素材库 | `/pages/material/index` | 管理图片素材 |
+| 作品 | `/pages/works/index` | 查看历史生成记录 |
+| 我的 | `/pages/profile/index` | 个人中心 |
+
+### 2. 视频生成流程
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│                              视频生成流程                                 │
+└──────────────────────────────────────────────────────────────────────────┘
+
+用户操作                     前端处理                      后端处理
+   │                           │                            │
+   │  1. 选择图片              │                            │
+   ├──────────────────────────►│                            │
+   │                           │ 2. 图片转 Base64           │
+   │                           ├───────────────────────────►│
+   │                           │                            │
+   │  3. 填写描述信息          │                            │
+   ├──────────────────────────►│                            │
+   │                           │                            │
+   │  4. 点击"生成视频"        │                            │
+   ├──────────────────────────►│                            │
+   │                           │ 5. 存储参数到 Storage      │
+   │                           ├───────────────────────────►│
+   │                           │                            │
+   │                           │ 6. 跳转结果页              │
+   │                           ├───────────────────────────►│
+   │                           │                            │
+   │                           │ 7. POST /api/coze/workflow │
+   │                           ├───────────────────────────►│
+   │                           │                            │
+   │                           │              8. 转发到用户后端
+   │                           │              (192.168.146.161:8080)
+   │                           │                            │
+   │                           │ 9. 返回 { firstVideoUrl }  │
+   │                           │◄───────────────────────────┤
+   │                           │                            │
+   │  10. 展示视频             │                            │
+   │◄──────────────────────────┤                            │
+   │                           │                            │
+```
+
+### 3. 后端 API 接口
+
+**所有接口前缀：`/api`**
+
+| 接口 | 方法 | 功能 | 状态 |
+|------|------|------|------|
+| `/hello` | GET | 测试接口 | ✅ |
+| `/health` | GET | 健康检查 | ✅ |
+| `/ai/optimize-prompt` | POST | AI 优化提示词 | ✅ |
+| `/ai/polish-prompt` | POST | AI 润色提示词 | ✅ |
+| `/coze/workflow` | POST | Coze 工作流代理 ⭐ | ✅ |
+| `/template/list` | GET | 获取模板列表 | ✅ |
+| `/template/categories` | GET | 获取模板分类 | ✅ |
+| `/template/:id` | GET | 获取模板详情 | ✅ |
+| `/upload/image` | POST | 上传图片 | ✅ |
+| `/video/generate` | POST | 生成视频 | ⚠️ 未使用 |
+
+### 4. 网络请求架构
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           网络请求架构                                   │
+└─────────────────────────────────────────────────────────────────────────┘
+
+                              H5 环境
+┌─────────────┐     /api/coze/workflow     ┌─────────────┐
+│   H5 页面   │ ──────────────────────────►│  NestJS     │
+│  (fetch)    │                            │  后端代理   │
+└─────────────┘                            └──────┬──────┘
+                                                  │
+                                                  │ http://192.168.146.161:8080/coze/workflow/
+                                                  ▼
+                                           ┌─────────────┐
+                                           │  用户后端   │
+                                           │ (视频生成)  │
+                                           └─────────────┘
+
+                            小程序环境
+┌─────────────┐     /api/coze/workflow     ┌─────────────┐
+│   小程序    │ ──────────────────────────►│  NestJS     │
+│(Taro.request)│                           │  后端代理   │
+└─────────────┘                            └──────┬──────┘
+                                                  │
+                                                  │ http://192.168.146.161:8080/coze/workflow/
+                                                  ▼
+                                           ┌─────────────┐
+                                           │  用户后端   │
+                                           │ (视频生成)  │
+                                           └─────────────┘
+```
+
+**为什么需要后端代理？**
+
+| 问题 | 解决方案 |
+|------|---------|
+| 小程序必须 HTTPS | ✅ 项目后端与小程序同域，无跨域问题 |
+| 小程序域名白名单 | ✅ 只需配置项目域名，无需配置用户后端 |
+| 局域网 IP 限制 | ✅ 项目后端可以访问局域网 |
+| CORS 问题 | ✅ 同域请求，无 CORS |
+
+---
+
 ## 快速开始
+
+### 环境要求
+
+- Node.js >= 18
+- pnpm >= 8
+- 微信开发者工具（小程序开发）
 
 ### 安装依赖
 
@@ -57,16 +250,15 @@ pnpm install
 
 ### 本地开发
 
-同时启动 H5 前端和 NestJS 后端：
-
 ```bash
+# 同时启动前端和后端
 pnpm dev
 ```
 
-- 前端地址：http://localhost:5000
-- 后端地址：http://localhost:3000
+- **前端地址**：http://localhost:5000
+- **后端地址**：http://localhost:3000
 
-单独启动：
+### 单独启动
 
 ```bash
 pnpm dev:web      # 仅 H5 前端
@@ -79,170 +271,23 @@ pnpm dev:server   # 仅后端服务
 ```bash
 pnpm build        # 构建所有（H5 + 小程序 + 后端）
 pnpm build:web    # 仅构建 H5，输出到 dist-web
-pnpm build:weapp  # 仅构建微信小程序，输出到 dist
+pnpm build:weapp  # 仅构建微信小程序，输出到 dist-weapp
 pnpm build:server # 仅构建后端
 ```
 
 ### 预览小程序
 
 ```bash
-pnpm preview:weapp # 构建并生成预览小程序二维码
+pnpm preview:weapp # 构建并生成预览二维码
 ```
 
-## 前端核心开发规范
+---
 
-### 新建页面流程
+## 核心开发规范
 
-1. 在 \`src/pages/\` 下创建页面目录
-2. 创建 \`index.tsx\`（页面组件）
-3. 创建 \`index.config.ts\`（页面配置）
-4. 创建 \`index.css\`（页面样式，可选）
-5. 在 \`src/app.config.ts\` 的 \`pages\` 数组中注册页面路径
+### 网络请求
 
-或使用 Taro 脚手架命令：
-
-```bash
-pnpm new      # 交互式创建页面/组件
-```
-
-### 组件库
-
-#### UI 组件
-
-UI 组件位于 `@/components/ui`，推荐按需引入：
-
-```typescript
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-```
-
-UI 组件列表:
-
-Accordion,Alert,AlertDialog,AspectRatio,Avatar,Badge,Breadcrumb,Button,ButtonGroup,Calendar,Card,Carousel,Checkbox,CodeBlock,Collapsible,Command,ContextMenu,Dialog,Drawer,DropdownMenu,Field,HoverCard,Input,InputGroup,InputOTP,Label,Menubar,NavigationMenu,Pagination,Popover,Portal,Progress,RadioGroup,Resizable,ScrollArea,Select,Separator,Sheet,Skeleton,Slider,Sonner,Switch,Table,Tabs,Textarea,Toast,Toggle,ToggleGroup,Tooltip
-
-#### Taro 原生组件
-
-可以使用的 Taro 组件（UI 未覆盖）
-
-```typescript
-import { View, Text, Icon, Image } from '@tarojs/components'
-```
-
-Taro 原生组件列表：
-
-Text,Icon,RichText,CheckboxGroup,Editor,Form,Picker,PickerView,PickerViewColumn,Radio,FunctionalPageNavigator,NavigationBar,Navigator,TabItem,Camera,Image,Video,ScrollView,Swiper,SwiperItem,View
-
-### 路径别名
-
-项目配置了 `@/*` 路径别名指向 `src/*`：
-
-```typescript
-import { SomeComponent } from '@/components/some-component'
-import { useUserStore } from '@/stores/user'
-```
-
-### 代码模板
-
-#### 页面组件 (TypeScript + React)
-
-```tsx
-// src/pages/example/index.tsx
-import { View } from '@tarojs/components'
-import { useLoad, useDidShow } from '@tarojs/taro'
-import type { FC } from 'react'
-import { Button } from '@/components/ui/button'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
-import './index.css'
-
-const ExamplePage: FC = () => {
-  useLoad(() => {
-    console.log('Page loaded.')
-  })
-
-  useDidShow(() => {
-    console.log('Page showed.')
-  })
-
-  return (
-    <View className="p-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>Hello Taro!</CardTitle>
-          <CardDescription>
-            页面布局用 Taro 基础组件，交互与视觉优先用项目内置 UI 组件。
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <View className="text-sm text-muted-foreground">
-            组件位于 src/components/ui，推荐按需从 @/components/ui/* 引入。
-          </View>
-        </CardContent>
-        <CardFooter className="justify-end">
-          <Button size="sm" onClick={() => console.log('clicked')}>
-            点击
-          </Button>
-        </CardFooter>
-      </Card>
-    </View>
-  )
-}
-
-export default ExamplePage
-```
-
-#### 页面配置
-
-```typescript
-// src/pages/example/index.config.ts
-import { definePageConfig } from '@tarojs/taro'
-
-export default definePageConfig({
-  navigationBarTitleText: '示例页面',
-  enablePullDownRefresh: true,
-  backgroundTextStyle: 'dark',
-})
-```
-
-#### 应用配置
-
-```typescript
-// src/app.config.ts
-import { defineAppConfig } from '@tarojs/taro'
-
-export default defineAppConfig({
-  pages: [
-    'pages/index/index',
-    'pages/example/index',
-  ],
-  window: {
-    backgroundTextStyle: 'light',
-    navigationBarBackgroundColor: '#fff',
-    navigationBarTitleText: 'App',
-    navigationBarTextStyle: 'black',
-  },
-  // TabBar 配置 (可选)
-  // tabBar: {
-  //   list: [
-  //     { pagePath: 'pages/index/index', text: '首页' },
-  //   ],
-  // },
-})
-```
-
-### 发送请求
-
-**IMPORTANT: 禁止直接使用 Taro.request、Taro.uploadFile、Taro.downloadFile，使用 Network.request、Network.uploadFile、Network.downloadFile 替代。**
-
-Network 是对 Taro.request、Taro.uploadFile、Taro.downloadFile 的封装，自动添加项目域名前缀，参数与 Taro 一致。
-
-✅ 正确使用方式
+**IMPORTANT**: 使用 `Network.request` 替代 `Taro.request`
 
 ```typescript
 import { Network } from '@/network'
@@ -254,83 +299,43 @@ const data = await Network.request({
 
 // POST 请求
 const result = await Network.request({
-  url: '/api/user/login',
+  url: '/api/coze/workflow',
   method: 'POST',
-  data: { username, password }
-})
-
-// 文件上传
-await Network.uploadFile({
-  url: '/api/upload',
-  filePath: tempFilePath,
-  name: 'file'
-})
-
-// 文件下载
-await Network.downloadFile({
-  url: '/api/download/file.pdf'
+  data: { 
+    images: ['base64...'],
+    product_desc: '产品描述'
+  }
 })
 ```
 
-❌ 错误用法
+### 组件使用
+
+优先使用 `@/components/ui` 中的组件：
 
 ```typescript
-import Taro from '@tarojs/taro'
-
-// ❌ 会导致自动域名拼接无法生效，除非是特殊指定域名
-const data = await Network.request({
-  url: 'http://localhost/api/hello'
-})
-
-// ❌ 不要直接使用 Taro.request
-await Taro.request({ url: '/api/hello' })
-
-// ❌ 不要直接使用 Taro.uploadFile
-await Taro.uploadFile({ url: '/api/upload', filePath, name: 'file' })
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 ```
 
-### Zustand 状态管理
+### 图标使用
 
 ```typescript
-// src/stores/user.ts
-import { create } from 'zustand'
+import { House, Settings, Camera } from 'lucide-react-taro'
 
-interface UserState {
-  userInfo: UserInfo | null
-  token: string
-  setUserInfo: (info: UserInfo) => void
-  setToken: (token: string) => void
-  logout: () => void
-}
-
-interface UserInfo {
-  id: string
-  name: string
-  avatar: string
-}
-
-export const useUserStore = create<UserState>((set) => ({
-  userInfo: null,
-  token: '',
-  setUserInfo: (info) => set({ userInfo: info }),
-  setToken: (token) => set({ token }),
-  logout: () => set({ userInfo: null, token: '' }),
-}))
+<House size={24} color="#1890ff" />
+<Settings size={32} />
+<Camera strokeWidth={1.5} />
 ```
 
-### Taro 生命周期 Hooks
+### 样式开发
 
-```typescript
-import {
-  useLoad,             // 页面加载 (onLoad)
-  useReady,            // 页面初次渲染完成 (onReady)
-  useDidShow,          // 页面显示 (onShow)
-  useDidHide,          // 页面隐藏 (onHide)
-  usePullDownRefresh,  // 下拉刷新 (onPullDownRefresh)
-  useReachBottom,      // 触底加载 (onReachBottom)
-  useShareAppMessage,  // 分享 (onShareAppMessage)
-  useRouter,           // 获取路由参数
-} from '@tarojs/taro'
+使用 Tailwind CSS：
+
+```tsx
+<View className="flex flex-col items-center min-h-screen bg-gray-100">
+  <Text className="text-2xl font-bold text-blue-600 mb-4">标题</Text>
+</View>
 ```
 
 ### 路由导航
@@ -338,426 +343,167 @@ import {
 ```typescript
 import Taro from '@tarojs/taro'
 
-// 保留当前页面，跳转到新页面
-Taro.navigateTo({ url: '/pages/detail/index?id=1' })
+// 跳转页面
+Taro.navigateTo({ url: '/pages/result/index?from=shop' })
 
-// 关闭当前页面，跳转到新页面
-Taro.redirectTo({ url: '/pages/detail/index' })
-
-// 跳转到 tabBar 页面
+// TabBar 页面
 Taro.switchTab({ url: '/pages/index/index' })
 
-// 返回上一页
-Taro.navigateBack({ delta: 1 })
-
-// 获取路由参数
-const router = useRouter()
-const { id } = router.params
+// 返回
+Taro.navigateBack()
 ```
 
-### 图标使用 (lucide-react-taro)
+---
 
-**IMPORTANT: 禁止使用 lucide-react，必须使用 lucide-react-taro 替代。**
+## 配置说明
 
-lucide-react-taro 是 Lucide 图标库的 Taro 适配版本，专为小程序环境优化，API 与 lucide-react 一致：
+### 后端代理配置
 
-```tsx
-import { View } from '@tarojs/components'
-import { House, Settings, User, Search, Camera, Zap } from 'lucide-react-taro'
-
-const IconDemo = () => {
-  return (
-    <View className="flex gap-4">
-      {/* 基本用法 */}
-      <House />
-      {/* 自定义尺寸和颜色 */}
-      <Settings size={32} color="#1890ff" />
-      {/* 自定义描边宽度 */}
-      <User size={24} strokeWidth={1.5} />
-      {/* 绝对描边宽度（描边不随 size 缩放） */}
-      <Camera size={48} strokeWidth={2} absoluteStrokeWidth />
-      {/* 组合使用 */}
-      <Zap size={32} color="#ff6b00" strokeWidth={1.5} className="my-icon" />
-    </View>
-  )
-}
-```
-
-常用属性：
-- `size` - 图标大小（默认 24）
-- `color` - 图标颜色（默认 currentColor，小程序中建议显式设置）
-- `strokeWidth` - 线条粗细（默认 2）
-- `absoluteStrokeWidth` - 绝对描边宽度，启用后描边不随 size 缩放
-- `className` / `style` - 自定义样式
-
-更多图标请访问：https://lucide.dev/icons
-
-### TabBar 图标生成 (CLI 工具)
-
-**IMPORTANT: 微信小程序的 TabBar 不支持 base64 或 SVG 图片，必须使用本地 PNG 文件。**
-
-lucide-react-taro 提供了 CLI 工具来生成 TabBar 所需的 PNG 图标：
-
-```bash
-# 生成带选中状态的图标
-npx taro-lucide-tabbar House Settings User -c "#999999" -a "#1890ff"
-
-# 指定输出目录和尺寸
-npx taro-lucide-tabbar House Settings User -c "#999999" -a "#1890ff" -o ./src/assets/tabbar -s 81
-```
-
-CLI 参数：
-- `--color, -c` (默认 #000000): 图标颜色
-- `--active-color, -a`: 选中状态颜色
-- `--size, -s` (默认 81): 图标尺寸
-- `--output, -o` (默认 ./tabbar-icons): 输出目录
-- `--stroke-width` (默认 2): 描边宽度
-
-在 `app.config.ts` 中使用生成的图标：
-
-> IMPORTANT：iconPath 和 selectedIconPath 必须以 `./` 开头，否则图标无法渲染
+修改 `server/src/modules/coze/coze.service.ts`：
 
 ```typescript
-export default defineAppConfig({
-  tabBar: {
-    color: '#999999',
-    selectedColor: '#1890ff',
-    backgroundColor: '#ffffff',
-    borderStyle: 'black',
-    list: [
-      {
-        pagePath: 'pages/index/index',
-        text: '首页',
-        iconPath: './assets/tabbar/house.png',
-        selectedIconPath: './assets/tabbar/house-active.png',
-      },
-      {
-        pagePath: 'pages/settings/index',
-        text: '设置',
-        iconPath: './assets/tabbar/settings.png',
-        selectedIconPath: './assets/tabbar/settings-active.png',
-      },
-      {
-        pagePath: 'pages/user/index',
-        text: '用户',
-        iconPath: './assets/tabbar/user.png',
-        selectedIconPath: './assets/tabbar/user-active.png',
-      },
-    ],
-  },
-})
-
-### Tailwind CSS 样式开发
-
-IMPORTANT：必须使用 tailwindcss 实现样式，只有在必要情况下才能 fallback 到 css / less
-
-> 项目已集成 Tailwind CSS 4.x + weapp-tailwindcss，支持跨端原子化样式：
-
-```tsx
-import { View, Text } from '@tarojs/components'
-import { Button } from '@/components/ui/button'
-
-<View className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
-  <Text className="text-2xl font-bold text-blue-600 mb-4">标题</Text>
-  <View className="w-full px-4">
-    <Button className="w-full" size="lg">
-      按钮
-    </Button>
-  </View>
-</View>
+const USER_BACKEND = {
+  baseUrl: 'http://192.168.146.161:8080',  // 用户后端地址
+  workflowEndpoint: '/coze/workflow/',
+};
 ```
 
-### 性能优化
+### Vite 代理配置（H5 开发）
 
-#### 图片懒加载
-
-```tsx
-import { Image } from '@tarojs/components'
-
-<Image src={imageUrl} lazyLoad mode="aspectFill" />
-```
-
-#### 虚拟列表
-
-```tsx
-import { VirtualList } from '@tarojs/components'
-
-<VirtualList
-  height={500}
-  itemData={list}
-  itemCount={list.length}
-  itemSize={100}
-  renderItem={({ index, style, data }) => (
-    <View style={style}>{data[index].name}</View>
-  )}
-/>
-```
-
-#### 分包加载
+修改 `config/index.ts`：
 
 ```typescript
-// src/app.config.ts
-export default defineAppConfig({
-  pages: ['pages/index/index'],
-  subPackages: [
-    {
-      root: 'packageA',
-      pages: ['pages/detail/index'],
+h5: {
+  devServer: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
     },
-  ],
-})
-```
-
-### 小程序限制
-
-| 限制项   | 说明                                     |
-| -------- | ---------------------------------------- |
-| 主包体积 | ≤ 2MB                                    |
-| 总包体积 | ≤ 20MB                                   |
-| 域名配置 | 生产环境需在小程序后台配置合法域名       |
-| 本地开发 | 需在微信开发者工具开启「不校验合法域名」 |
-
-### 权限配置
-
-```typescript
-// src/app.config.ts
-export default defineAppConfig({
-  // ...其他配置
-  permission: {
-    'scope.userLocation': {
-      desc: '你的位置信息将用于小程序位置接口的效果展示'
-    }
   },
-  requiredPrivateInfos: ['getLocation', 'chooseAddress']
-})
-```
-
-### 位置服务
-
-```typescript
-// 需先在 app.config.ts 中配置 permission
-async function getLocation(): Promise<Taro.getLocation.SuccessCallbackResult> {
-  return await Taro.getLocation({ type: 'gcj02' })
 }
 ```
 
-## 后端核心开发规范
+### 小程序配置
 
-本项目后端基于 NestJS + TypeScript 构建，提供高效、可扩展的服务端能力。
+修改 `project.config.json`：
 
-### 项目结构
-
-```sh
-.
-├── server/                   # NestJS 后端服务
-│   └── src/
-│       ├── main.ts           # 服务入口
-│       ├── app.module.ts     # 根模块
-│       ├── app.controller.ts # 根控制器
-│       └── app.service.ts    # 根服务
-```
-
-### 开发命令
-
-```sh
-pnpm dev:server // 启动开发服务 (热重载, 默认端口 3000)
-pnpm build:server // 构建生产版本
-```
-
-### 新建模块流程 (CLI)
-
-快速生成样板代码：
-
-```bash
-cd server
-
-# 生成完整的 CRUD 资源 (包含 Module, Controller, Service, DTO, Entity)
-npx nest g resource modules/product
-
-# 仅生成特定部分
-npx nest g module modules/order
-npx nest g controller modules/order
-npx nest g service modules/order
-```
-
-### 环境变量配置
-
-在 server/ 根目录创建 .env 文件：
-
-```sh
-## 服务端口
-PORT=3000
-
-## 微信小程序配置
-WX_APP_ID=你的AppID
-WX_APP_SECRET=你的AppSecret
-
-## JWT 密钥
-JWT_SECRET=your-super-secret-key
-```
-
-在代码中使用 @nestjs/config 读取环境变量：
-
-```typescript
-import { ConfigService } from '@nestjs/config';
-
-// 在 Service 中注入
-constructor(private configService: ConfigService) {}
-
-getWxConfig() {
-  return {
-    appId: this.configService.get<string>('WX_APP_ID'),
-    secret: this.configService.get<string>('WX_APP_SECRET'),
-  };
-}
-```
-
-### 标准响应封装
-
-建议使用拦截器 (Interceptor) 统一 API 响应格式：
-
-```typeScript
-// src/common/interceptors/transform.interceptor.ts
-import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/common';
-import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
-
-export interface Response<T> {
-  code: number;
-  data: T;
-  message: string;
-}
-
-@Injectable()
-export class TransformInterceptor<T> implements NestInterceptor<T, Response<T>> {
-  intercept(context: ExecutionContext, next: CallHandler): Observable<Response<T>> {
-    return next.handle().pipe(
-      map((data) => ({
-        code: 200,
-        data,
-        message: 'success',
-      })),
-    );
+```json
+{
+  "appid": "your-app-id",
+  "setting": {
+    "urlCheck": false  // 开发环境关闭域名校验
   }
 }
 ```
 
-在 main.ts 中全局注册：
+---
 
-```typescript
-app.useGlobalInterceptors(new TransformInterceptor());
+## API 文档
+
+### Coze 工作流接口
+
+**请求：**
+```http
+POST /api/coze/workflow
+Content-Type: application/json
+
+{
+  "images": ["data:image/jpeg;base64,..."],
+  "product_desc": "产品描述",
+  "product_name": "产品名称",
+  "video_length": 10,
+  "video_resolution": "720P",
+  "video_aspect_ratio": "9:16"
+}
 ```
 
-### 微信登录后端实现
-
-```typescript
-// src/modules/auth/auth.service.ts
-import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { HttpService } from '@nestjs/axios';
-import { ConfigService } from '@nestjs/config';
-import { lastValueFrom } from 'rxjs';
-
-@Injectable()
-export class AuthService {
-  constructor(
-    private httpService: HttpService,
-    private configService: ConfigService,
-  ) {}
-
-  async code2Session(code: string) {
-    const appId = this.configService.get('WX_APP_ID');
-    const secret = this.configService.get('WX_APP_SECRET');
-    const url = `https://api.weixin.qq.com/sns/jscode2session?appid=${appId}&secret=${secret}&js_code=${code}&grant_type=authorization_code`;
-
-    const { data } = await lastValueFrom(this.httpService.get(url));
-
-    if (data.errcode) {
-      throw new UnauthorizedException(`微信登录失败: ${data.errmsg}`);
-    }
-
-    return data; // 包含 openid, session_key
+**响应：**
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "id": "workflow-xxx",
+    "status": "completed",
+    "firstVideoUrl": "https://xxx.mp4",
+    "videoUrls": ["https://xxx.mp4"]
   }
 }
 ```
 
-### 异常处理
+---
 
-使用全局异常过滤器 (Filter) 统一错误响应：
+## 常见问题
 
-```typescript
-// src/common/filters/http-exception.filter.ts
-import { ExceptionFilter, Catch, ArgumentsHost, HttpException } from '@nestjs/common';
-import { Response } from 'express';
+### 1. 小程序无法请求接口？
 
-@Catch(HttpException)
-export class HttpExceptionFilter implements ExceptionFilter {
-  catch(exception: HttpException, host: ArgumentsHost) {
-    const ctx = host.switchToHttp();
-    const response = ctx.getResponse<Response>();
-    const status = exception.getStatus();
-    const exceptionResponse = exception.getResponse();
+检查以下配置：
+- `project.config.json` 中 `urlCheck` 是否为 `false`
+- 是否通过后端代理（`/api/coze/workflow`）而非直接请求
 
-    response.status(status).json({
-      code: status,
-      message: typeof exceptionResponse === 'string' ? exceptionResponse : (exceptionResponse as any).message,
-      data: null,
-    });
-  }
-}
+### 2. H5 跨域问题？
+
+确保：
+- 开发环境使用 Vite 代理
+- 生产环境后端配置 CORS
+
+### 3. 图片转 Base64 失败？
+
+- H5：确保图片 URL 可访问
+- 小程序：确保使用 `Taro.getFileSystemManager()`
+
+---
+
+## 部署指南
+
+### 生产环境部署
+
+1. **后端部署**
+   ```bash
+   cd server
+   pnpm build
+   pnpm start:prod
+   ```
+
+2. **前端构建**
+   ```bash
+   pnpm build:web     # H5
+   pnpm build:weapp   # 小程序
+   ```
+
+3. **小程序上传**
+   - 在微信开发者工具中上传代码
+   - 或使用 CI 工具：`pnpm preview:weapp`
+
+### 环境变量
+
+创建 `.env.local`：
+
+```env
+# 项目域名（生产环境）
+PROJECT_DOMAIN=https://your-domain.com
+
+# 微信小程序
+TARO_APP_WEAPP_APPID=your-app-id
+
+# 其他配置
+...
 ```
 
-在 main.ts 中注册：
+---
 
-```
-app.useGlobalFilters(new HttpExceptionFilter());
-```
+## 更新日志
 
-### 数据库 (Drizzle ORM)
+### v1.0.0
+- ✅ 完成基础架构搭建
+- ✅ 实现视频生成核心功能
+- ✅ 支持 H5 和小程序双端
+- ✅ 配置后端代理解决网络限制
 
-推荐使用 [Drizzle ORM](https://orm.drizzle.team/)，已预安装。
+---
 
-### 类型校验 (Zod)
+## 许可证
 
-项目集成了 [Zod](https://zod.dev/) 用于运行时类型校验。
-
-#### 定义 Schema
-
-```typescript
-import { z } from 'zod';
-
-// 基础类型
-const userSchema = z.object({
-  id: z.number(),
-  name: z.string().min(1).max(50),
-  email: z.string().email(),
-  age: z.number().int().positive().optional(),
-});
-
-// 从 schema 推导 TypeScript 类型
-type User = z.infer<typeof userSchema>;
-```
-
-#### 请求校验
-
-```typescript
-// src/modules/user/dto/create-user.dto.ts
-import { z } from 'zod';
-
-export const createUserSchema = z.object({
-  nickname: z.string().min(1, '昵称不能为空').max(20, '昵称最多20个字符'),
-  avatar: z.string().url('头像必须是有效的URL').optional(),
-  phone: z.string().regex(/^1[3-9]\d{9}$/, '手机号格式不正确').optional(),
-});
-
-export type CreateUserDto = z.infer<typeof createUserSchema>;
-
-// 在 Controller 中使用
-@Post()
-create(@Body() body: unknown) {
-  const result = createUserSchema.safeParse(body);
-  if (!result.success) {
-    throw new BadRequestException(result.error.errors);
-  }
-  return this.userService.create(result.data);
-}
-```
+MIT License
