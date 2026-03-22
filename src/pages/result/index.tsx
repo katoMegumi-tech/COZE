@@ -142,7 +142,7 @@ const ResultPage: FC = () => {
         // 成功获取视频URL
         const segments: VideoSegment[] = [{
           id: 'seg_0',
-          script: params.product_desc || 'AI生成视频',
+          script: params.product_desc || params.product_name || 'AI生成视频',
           videoUrl: result.videoUrl,
           duration: params.video_length || 10,
           confirmed: false,
@@ -153,31 +153,17 @@ const ResultPage: FC = () => {
         setLoadingProgress(100)
         setLoadingText('生成完成！')
         
-        console.log('[ResultPage] ✓ Video generated successfully')
+        console.log('[ResultPage] ✓ Video generated successfully:', result.videoUrl)
+        
+        setTimeout(() => {
+          setIsLoading(false)
+        }, 500)
       } else {
         throw new Error(result.error || '视频生成失败')
       }
-
-      setTimeout(() => {
-        setIsLoading(false)
-      }, 500)
     } catch (err: any) {
       console.error('[ResultPage] Video generation error:', err)
       setErrorMessage(err.message || '视频生成失败')
-      
-      // 使用模拟数据（用于演示）
-      const mockSegments: VideoSegment[] = [
-        {
-          id: 'seg_0',
-          script: params.product_desc || 'AI生成视频（演示）',
-          videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
-          duration: params.video_length || 10,
-          confirmed: false,
-          regenerating: false,
-        },
-      ]
-      
-      setVideoSegments(mockSegments)
       setIsLoading(false)
     }
   }
