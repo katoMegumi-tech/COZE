@@ -1,14 +1,13 @@
 /**
  * Coze工作流API调用工具
- * 直接调用用户后端接口
+ * 通过项目后端代理调用用户后端接口
  */
 
 import Taro from '@tarojs/taro'
 
-// 后端API配置
+// API配置 - 统一使用项目后端代理
 const API_CONFIG = {
-  baseUrl: 'http://192.168.146.161:8080',
-  workflowEndpoint: '/coze/workflow/',
+  proxyEndpoint: '/api/coze/workflow', // 通过项目后端代理
 }
 
 export interface WorkflowParams {
@@ -125,7 +124,7 @@ async function imageToBase64Native(filePath: string): Promise<string> {
 }
 
 /**
- * 调用工作流接口
+ * 调用工作流接口（通过后端代理）
  * 返回格式: { code: 0, message: "success", data: { firstVideoUrl: "xxx", ... } }
  */
 export async function runCozeWorkflow(
@@ -164,7 +163,7 @@ export async function runCozeWorkflow(
       isFinish: false,
     })
 
-    const url = `${API_CONFIG.baseUrl}${API_CONFIG.workflowEndpoint}`
+    const url = API_CONFIG.proxyEndpoint
     
     let videoUrl: string | null = null
 
@@ -193,14 +192,14 @@ export async function runCozeWorkflow(
 }
 
 /**
- * H5环境：使用fetch调用接口
+ * H5环境：使用fetch调用项目后端代理
  */
 async function runWorkflowWithFetch(
   url: string,
   requestBody: any,
   _onProgress?: (progress: WorkflowProgress) => void
 ): Promise<string | null> {
-  console.log('[CozeAPI] H5: Fetching:', url)
+  console.log('[CozeAPI] H5: Fetching via proxy:', url)
   
   const response = await fetch(url, {
     method: 'POST',
@@ -221,14 +220,14 @@ async function runWorkflowWithFetch(
 }
 
 /**
- * 小程序环境：使用Taro.request调用接口
+ * 小程序环境：使用Taro.request调用项目后端代理
  */
 async function runWorkflowWithTaro(
   url: string,
   requestBody: any,
   _onProgress?: (progress: WorkflowProgress) => void
 ): Promise<string | null> {
-  console.log('[CozeAPI] Mini Program: Requesting:', url)
+  console.log('[CozeAPI] Mini Program: Requesting via proxy:', url)
 
   // eslint-disable-next-line no-restricted-properties
   const response = await Taro.request({
@@ -238,6 +237,7 @@ async function runWorkflowWithTaro(
       'Content-Type': 'application/json',
     },
     data: requestBody,
+    timeout: 300000, // 5分钟超时
   })
 
   console.log('[CozeAPI] Mini Program: Response:', response.statusCode, response.data)
