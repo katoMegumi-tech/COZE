@@ -308,82 +308,52 @@ const CreatePage: FC = () => {
             <Text className="text-gray-400 text-xs">参考图片/图片中不得有任何人物</Text>
           </View>
           
-          {formData.image || activeTab === 'shop' ? (
-            <View className="bg-gray-900 rounded-xl p-6 flex flex-col items-center justify-center">
-              {formData.image ? (
-                <View className="w-full aspect-video relative rounded-lg overflow-hidden">
-                  <TaroImage
-                    src={formData.image}
-                    mode="aspectFill"
-                    className="w-full h-full"
-                  />
-                  {isConverting && (
-                    <View
-                      className="absolute inset-0 flex items-center justify-center"
-                      style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}
-                    >
-                      <View className="flex flex-col items-center">
-                        <Loader size={32} color="#a855f7" className="animate-spin" />
-                        <Text className="text-white text-sm mt-2">处理中...</Text>
-                      </View>
-                    </View>
-                  )}
-                  {!isConverting && formData.imageBase64 && (
-                    <View
-                      className="absolute top-2 left-2 rounded-full px-3 py-1"
-                      style={{ backgroundColor: 'rgba(34, 197, 94, 0.8)' }}
-                    >
-                      <Text className="text-white text-xs">✓ 已准备</Text>
-                    </View>
-                  )}
+          <View className="bg-gray-900 rounded-xl p-6 flex flex-col items-center justify-center">
+            {formData.image ? (
+              <View className="w-full aspect-video relative rounded-lg overflow-hidden">
+                <TaroImage
+                  src={formData.image}
+                  mode="aspectFill"
+                  className="w-full h-full"
+                />
+                {isConverting && (
                   <View
-                    className="absolute top-2 right-2 bg-black bg-opacity-50 rounded-full px-3 py-1"
-                    onClick={() => setFormData({ ...formData, image: '', imageBase64: '' })}
+                    className="absolute inset-0 flex items-center justify-center"
+                    style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}
                   >
-                    <Text className="text-white text-xs">更换</Text>
+                    <View className="flex flex-col items-center">
+                      <Loader size={32} color="#a855f7" className="animate-spin" />
+                      <Text className="text-white text-sm mt-2">处理中...</Text>
+                    </View>
                   </View>
+                )}
+                {!isConverting && formData.imageBase64 && (
+                  <View
+                    className="absolute top-2 left-2 rounded-full px-3 py-1"
+                    style={{ backgroundColor: 'rgba(34, 197, 94, 0.8)' }}
+                  >
+                    <Text className="text-white text-xs">✓ 已准备</Text>
+                  </View>
+                )}
+                <View
+                  className="absolute top-2 right-2 bg-black bg-opacity-50 rounded-full px-3 py-1"
+                  onClick={() => setFormData({ ...formData, image: '', imageBase64: '' })}
+                >
+                  <Text className="text-white text-xs">更换</Text>
                 </View>
-              ) : (
-                <>
-                  <View className="w-12 h-12 rounded-full bg-gray-800 flex items-center justify-center mb-3">
-                    <Upload size={24} color="#9CA3AF" />
-                  </View>
-                  <Text className="text-gray-400 text-sm mb-3">
-                    点击上传参考图片（可选）
-                  </Text>
-                  <View className="w-full flex flex-row items-center justify-center">
-                    <Text className="text-gray-500 text-xs">—— 或者 ——</Text>
-                  </View>
-                  <View className="w-full flex flex-row flex-wrap items-center justify-center gap-4 mt-3">
-                    <View
-                      className="flex flex-row items-center gap-2 bg-gray-800 rounded-lg px-4 py-2"
-                      onClick={handleChooseImage}
-                    >
-                      <Image size={14} color="#ffffff" />
-                      <Text className="text-white text-xs">素材库</Text>
-                    </View>
-                    <View
-                      className="flex flex-row items-center gap-2 bg-gray-800 rounded-lg px-4 py-2"
-                      onClick={handleChooseImage}
-                    >
-                      <Camera size={14} color="#ffffff" />
-                      <Text className="text-white text-xs">直接拍</Text>
-                    </View>
-                  </View>
-                </>
-              )}
-            </View>
-          ) : (
-            <View className="flex flex-row gap-3">
-              <View className="bg-gray-900 rounded-xl p-6 flex-1 flex flex-col items-center justify-center">
+              </View>
+            ) : (
+              <>
                 <View className="w-12 h-12 rounded-full bg-gray-800 flex items-center justify-center mb-3">
                   <Upload size={24} color="#9CA3AF" />
                 </View>
-                <Text className="text-gray-400 text-sm mb-3">上传产品图片</Text>
+                <Text className="text-gray-400 text-sm mb-3">
+                  点击上传{activeTab === 'shop' ? '参考图片（可选）' : '产品图片'}
+                </Text>
                 <View className="w-full flex flex-row items-center justify-center">
                   <Text className="text-gray-500 text-xs">—— 或者 ——</Text>
                 </View>
-                <View className="w-full flex flex-row flex-wrap items-center justify-center gap-3 mt-3">
+                <View className="w-full flex flex-row flex-wrap items-center justify-center gap-4 mt-3">
                   <View
                     className="flex flex-row items-center gap-2 bg-gray-800 rounded-lg px-4 py-2"
                     onClick={handleChooseImage}
@@ -399,29 +369,9 @@ const CreatePage: FC = () => {
                     <Text className="text-white text-xs">直接拍</Text>
                   </View>
                 </View>
-              </View>
-
-              <View
-                className="bg-gray-900 rounded-xl p-4 flex-1 flex flex-col"
-                onClick={() => {
-                  Taro.previewImage({ urls: ['/assets/tabbar/house.png'] })
-                }}
-              >
-                <View className="flex flex-row items-center justify-between mb-3">
-                  <Text className="text-white text-sm font-medium">展示案例</Text>
-                  <Text className="text-gray-400 text-xs">点击预览</Text>
-                </View>
-                <View className="w-full aspect-video rounded-lg overflow-hidden bg-gray-800">
-                  <TaroImage
-                    src="/assets/tabbar/house.png"
-                    mode="aspectFill"
-                    className="w-full h-full"
-                  />
-                </View>
-                <Text className="text-gray-400 text-xs mt-3">单张展示</Text>
-              </View>
-            </View>
-          )}
+              </>
+            )}
+          </View>
           {activeTab === 'product' && (
             <Text className="text-gray-500 text-xs mt-2">
               玩法解密: 上传产品多角度拼图,生成视频效果更佳
