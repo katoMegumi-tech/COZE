@@ -140,6 +140,56 @@ export default defineConfig<'vite'>(async (merge, _env) => {
             };
           },
         },
+        // 自动移除小程序不兼容的 :has(view[data-orientation=horizontal]) 选择器
+        {
+          name: 'strip-miniapp-has-selector',
+          generateBundle(_options, bundle) {
+            Object.values(bundle).forEach((asset: any) => {
+              if (
+                asset &&
+                asset.type === 'asset' &&
+                typeof asset.source === 'string' &&
+                asset.fileName.endsWith('.wxss')
+              ) {
+                asset.source = asset.source.replace(
+                  /:has\(view\[data-orientation=horizontal\]\)/g,
+                  ''
+                );
+              }
+            });
+          },
+        },
+        // 确保每个页面目录下都有 index.wxss，避免小程序编译时报 ENOENT
+        {
+          name: 'ensure-page-wxss',
+          generateBundle(_options, bundle) {
+            const pageDirs = new Set<string>();
+
+            Object.values(bundle).forEach((asset: any) => {
+              if (!asset || typeof asset.fileName !== 'string') return;
+              const fileName = asset.fileName;
+
+              if (
+                fileName.startsWith('pages/') &&
+                (fileName.endsWith('/index.wxml') || fileName.endsWith('/index.js'))
+              ) {
+                const dir = fileName.slice(0, fileName.lastIndexOf('/'));
+                pageDirs.add(dir);
+              }
+            });
+
+            pageDirs.forEach((dir) => {
+              const wxssName = `${dir}/index.wxss`;
+              if (!(bundle as any)[wxssName]) {
+                (bundle as any)[wxssName] = {
+                  type: 'asset',
+                  fileName: wxssName,
+                  source: '',
+                };
+              }
+            });
+          },
+        },
         ...(isH5
           ? []
           : [
@@ -187,11 +237,7 @@ export default defineConfig<'vite'>(async (merge, _env) => {
         open: false,
         proxy: {
           '/api': {
-            target: 'http://localhost:3000',
-            changeOrigin: true,
-          },
-          '/coze': {
-            target: 'http://192.168.146.161:8080',
+            target: 'http://localhost:8088',
             changeOrigin: true,
           },
         },

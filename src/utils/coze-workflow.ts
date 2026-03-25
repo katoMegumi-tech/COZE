@@ -4,10 +4,16 @@
  */
 
 import Taro from '@tarojs/taro'
+import { Network } from '../network'
 
-// API配置 - 统一使用项目后端代理
+// API配置 - 直接调用 Java 后端 (8088) 的 /api 前缀接口
 const API_CONFIG = {
-  proxyEndpoint: '/api/coze/workflow', // 通过项目后端代理
+  // 上传文件到 Coze 对象存储
+  uploadToCoze: '/upload/coze',
+  // 异步启动工作流
+  workflowAsync: '/coze/workflow/async',
+  // 查询工作流状态
+  workflowStatus: (taskId: string) => `/coze/workflow/status/${taskId}`,
 }
 
 export interface WorkflowParams {
@@ -40,66 +46,47 @@ export interface WorkflowResult {
   error?: string
 }
 
+interface CozeUploadResponse {
+  code: number
+  message: string
+  data: {
+    id: string
+    bytes: number
+    fileName: string
+    createdAt: number
+    url?: string
+  } | null
+}
+
+interface CozeAsyncStartResponse {
+  code: number
+  message: string
+  data: {
+    taskId: string
+  } | null
+}
+
+interface CozeStatusResponse {
+  code: number
+  message: string
+  data: {
+    taskId: string
+    status: string
+    progress: number
+    message: string
+    videoUrls: string[]
+    errorMessage?: string
+  } | null
+}
+
 /**
- * 将本地图片文件转换为base64
- * H5环境使用fetch，小程序环境使用FileSystemManager
+ * 小程序环境：使用 FileSystemManager 读取 base64
+ * （项目只支持小程序，不再处理 H5 场景）
  */
 export async function imageToBase64(filePath: string): Promise<string> {
-  const isH5 = Taro.getEnv() === Taro.ENV_TYPE.WEB
-  
-  console.log('[CozeAPI] Converting image to base64, env:', isH5 ? 'H5' : 'Mini Program')
-  
-  if (isH5) {
-    // H5环境：使用fetch获取图片并转为base64
-    return imageToBase64H5(filePath)
-  } else {
-    // 小程序环境：使用FileSystemManager
-    return imageToBase64Native(filePath)
-  }
-}
-
-/**
- * H5环境：使用fetch获取图片并转为base64
- */
-async function imageToBase64H5(filePath: string): Promise<string> {
-  try {
-    console.log('[CozeAPI] H5: Fetching image from', filePath)
-    
-    // 使用fetch获取图片blob
-    const response = await fetch(filePath)
-    if (!response.ok) {
-      throw new Error(`Failed to fetch image: ${response.status}`)
-    }
-    
-    const blob = await response.blob()
-    
-    // 转换blob为base64
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        const base64 = reader.result as string
-        console.log('[CozeAPI] H5: Image converted, length:', base64.length)
-        resolve(base64)
-      }
-      reader.onerror = (error) => {
-        console.error('[CozeAPI] H5: FileReader error:', error)
-        reject(new Error('Failed to read image as base64'))
-      }
-      reader.readAsDataURL(blob)
-    })
-  } catch (error) {
-    console.error('[CozeAPI] H5: Failed to convert image to base64:', error)
-    throw error
-  }
-}
-
-/**
- * 小程序环境：使用FileSystemManager读取base64
- */
-async function imageToBase64Native(filePath: string): Promise<string> {
   try {
     const fileSystemManager = Taro.getFileSystemManager()
-    
+
     const base64 = await new Promise<string>((resolve, reject) => {
       fileSystemManager.readFile({
         filePath,
@@ -108,14 +95,14 @@ async function imageToBase64Native(filePath: string): Promise<string> {
         fail: reject,
       })
     })
-    
+
     // 获取文件类型
     const ext = filePath.split('.').pop()?.toLowerCase() || 'jpg'
     const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg'
-    
+
     const result = `data:${mimeType};base64,${base64}`
     console.log('[CozeAPI] Native: Image converted, length:', result.length)
-    
+
     return result
   } catch (error) {
     console.error('[CozeAPI] Native: Failed to convert image to base64:', error)
@@ -136,26 +123,7 @@ export async function runCozeWorkflow(
     images: params.images?.length ? `${params.images.length} images` : 'no images',
   })
 
-  // 检测运行环境
-  const isH5 = Taro.getEnv() === Taro.ENV_TYPE.WEB
-
   try {
-    // 准备请求体
-    const requestBody = {
-      images: params.images,
-      product_desc: params.product_desc || '',
-      product_features: params.product_features || '',
-      product_name: params.product_name || '',
-      product_price: params.product_price || '',
-      video_aspect_ratio: params.video_aspect_ratio || '16:9',
-      video_length: params.video_length || 10,
-      video_num: params.video_num || 1,
-      video_resolution: params.video_resolution || '720P',
-      video_scene: params.video_scene || '',
-      video_style: params.video_style || '时尚',
-      video_subtitle: params.video_subtitle !== false,
-    }
-
     // 通知开始
     onProgress?.({
       event: 'start',
@@ -163,17 +131,67 @@ export async function runCozeWorkflow(
       isFinish: false,
     })
 
-    const url = API_CONFIG.proxyEndpoint
-    
-    let videoUrl: string | null = null
-
-    if (isH5) {
-      // H5环境：使用fetch
-      videoUrl = await runWorkflowWithFetch(url, requestBody, onProgress)
-    } else {
-      // 小程序环境：使用Taro.request
-      videoUrl = await runWorkflowWithTaro(url, requestBody, onProgress)
+    // 1. 上传第一张图片到后端 /api/upload/coze，获取 fileId
+    const firstImage = params.images?.[0]
+    if (!firstImage) {
+      return { success: false, error: '请至少选择一张图片' }
     }
+
+    const uploadResp = await uploadFileToCoze(firstImage)
+    if (!uploadResp) {
+      throw new Error('文件上传失败')
+    }
+    if (uploadResp.code !== 200) {
+      throw new Error(uploadResp.message || '文件上传失败')
+    }
+    if (!uploadResp.data || !uploadResp.data.id) {
+      throw new Error('文件上传失败：返回数据缺少文件ID')
+    }
+
+    const fileId = uploadResp.data.id
+
+    onProgress?.({
+      event: 'upload_done',
+      content: '图片上传成功，开始提交工作流任务...',
+      isFinish: false,
+    })
+
+    // 2. 启动异步工作流 /api/coze/workflow/async
+    const startResp = await startAsyncWorkflow({
+      fileId,
+      productName: params.product_name,
+      productDesc: params.product_desc,
+      productFeatures: params.product_features,
+      productPrice: params.product_price,
+      videoAspectRatio: params.video_aspect_ratio,
+      videoLength: params.video_length,
+      videoNum: params.video_num,
+      videoResolution: params.video_resolution,
+      videoScene: params.video_scene,
+      videoStyle: params.video_style,
+      videoSubtitle: params.video_subtitle,
+    })
+
+    if (!startResp) {
+      throw new Error('工作流启动失败')
+    }
+    if (startResp.code !== 200) {
+      throw new Error(startResp.message || '工作流启动失败')
+    }
+    if (!startResp.data || !startResp.data.taskId) {
+      throw new Error('工作流启动失败：返回数据缺少任务ID')
+    }
+
+    const taskId = startResp.data.taskId
+
+    onProgress?.({
+      event: 'task_created',
+      content: `任务已创建，任务ID：${taskId}`,
+      isFinish: false,
+    })
+
+    // 3. 轮询任务状态 /api/coze/workflow/status/{taskId}
+    const videoUrl = await pollWorkflowResult(taskId, onProgress)
 
     if (videoUrl) {
       onProgress?.({
@@ -182,9 +200,9 @@ export async function runCozeWorkflow(
         isFinish: true,
       })
       return { success: true, videoUrl }
-    } else {
-      return { success: false, error: '未获取到视频URL' }
     }
+
+    return { success: false, error: '未获取到视频URL' }
   } catch (error: any) {
     console.error('[CozeAPI] Workflow failed:', error)
     return { success: false, error: error.message || '工作流调用失败' }
@@ -192,108 +210,122 @@ export async function runCozeWorkflow(
 }
 
 /**
- * H5环境：使用fetch调用项目后端代理
+ * 上传文件到 Coze（后端 /api/upload/coze）
  */
-async function runWorkflowWithFetch(
-  url: string,
-  requestBody: any,
-  _onProgress?: (progress: WorkflowProgress) => void
-): Promise<string | null> {
-  console.log('[CozeAPI] H5: Fetching via proxy:', url)
-  
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(requestBody),
+async function uploadFileToCoze(
+  filePath: string,
+): Promise<CozeUploadResponse | null> {
+  const url = API_CONFIG.uploadToCoze
+
+  // 小程序 / H5 都统一用 Taro.uploadFile，方便走 PROJECT_DOMAIN
+  // eslint-disable-next-line no-restricted-properties
+  const res = await Network.uploadFile({
+    url,
+    name: 'file',
+    filePath,
   })
 
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`)
+  try {
+    const data = typeof res.data === 'string' ? JSON.parse(res.data) : res.data
+    return data as CozeUploadResponse
+  } catch (e) {
+    console.error('[CozeAPI] Failed to parse upload response:', e)
+    return null
   }
-
-  const responseData = await response.json()
-  console.log('[CozeAPI] H5: Response:', responseData)
-
-  return parseWorkflowResponse(responseData)
 }
 
 /**
- * 小程序环境：使用Taro.request调用项目后端代理
+ * 启动异步工作流（后端 /api/coze/workflow/async）
  */
-async function runWorkflowWithTaro(
-  url: string,
-  requestBody: any,
-  _onProgress?: (progress: WorkflowProgress) => void
-): Promise<string | null> {
-  console.log('[CozeAPI] Mini Program: Requesting via proxy:', url)
+async function startAsyncWorkflow(
+  body: {
+    fileId: string
+    productName?: string
+    productDesc?: string
+    productFeatures?: string
+    productPrice?: string
+    videoAspectRatio?: '16:9' | '9:16' | '1:1'
+    videoLength?: number
+    videoNum?: number
+    videoResolution?: '480P' | '720P' | '1080P'
+    videoScene?: string
+    videoStyle?: string
+    videoSubtitle?: boolean
+  },
+): Promise<CozeAsyncStartResponse | null> {
+  const url = API_CONFIG.workflowAsync
 
-  // eslint-disable-next-line no-restricted-properties
-  const response = await Taro.request({
+  const res = await Network.request({
     url,
     method: 'POST',
-    header: {
-      'Content-Type': 'application/json',
-    },
-    data: requestBody,
-    timeout: 300000, // 5分钟超时
+    data: body,
   })
 
-  console.log('[CozeAPI] Mini Program: Response:', response.statusCode, response.data)
-
-  if (response.statusCode !== 200) {
-    throw new Error(`HTTP error! status: ${response.statusCode}`)
-  }
-
-  return parseWorkflowResponse(response.data)
+  return res.data as CozeAsyncStartResponse
 }
 
 /**
- * 解析工作流响应
- * 返回格式: { code: 0, message: "success", data: { firstVideoUrl: "xxx", ... } }
+ * 轮询异步任务状态，直到完成或失败
  */
-function parseWorkflowResponse(responseData: any): string | null {
-  // 检查响应格式
-  if (!responseData) {
-    throw new Error('响应数据为空')
+async function pollWorkflowResult(
+  taskId: string,
+  onProgress?: (progress: WorkflowProgress) => void,
+): Promise<string | null> {
+  const maxWaitMs = 1000 * 60 * 5 // 最多等待 5 分钟
+  const intervalMs = 3000
+  const start = Date.now()
+
+  while (Date.now() - start < maxWaitMs) {
+    const status = await getWorkflowStatus(taskId)
+
+    if (!status) {
+      throw new Error('查询任务状态失败')
+    }
+    if (status.code !== 200) {
+      throw new Error(status.message || '查询任务状态失败')
+    }
+    if (!status.data) {
+      throw new Error('查询任务状态失败：返回数据为空')
+    }
+
+    const data = status.data
+    const videoUrl = data.videoUrls?.[0]
+    const isFinish =
+      !!videoUrl ||
+      data.status === 'finished' ||
+      data.status === 'failed'
+
+    onProgress?.({
+      event: 'status',
+      content: data.message,
+      isFinish,
+      videoUrl,
+    })
+
+    // 后端一旦返回 videoUrl，即视为任务完成，立即返回
+    if (videoUrl) {
+      return videoUrl
+    }
+
+    if (data.status === 'failed') {
+      throw new Error(data.errorMessage || '视频生成失败')
+    }
+
+    await new Promise(resolve => setTimeout(resolve, intervalMs))
   }
 
-  // 检查code
-  if (responseData.code !== 0 && responseData.code !== 200) {
-    const errorMsg = responseData.message || responseData.msg || '请求失败'
-    throw new Error(errorMsg)
-  }
+  throw new Error('视频生成超时，请稍后重试')
+}
 
-  // 获取data
-  const data = responseData.data
-  if (!data) {
-    throw new Error('响应data为空')
-  }
+async function getWorkflowStatus(
+  taskId: string,
+): Promise<CozeStatusResponse | null> {
+  const url = API_CONFIG.workflowStatus(taskId)
 
-  // 检查是否有错误
-  if (data.errorMessage) {
-    throw new Error(data.errorMessage)
-  }
+  const res = await Network.request({
+    url,
+    method: 'GET',
+  })
 
-  // 检查状态
-  if (data.status === 'failed' || data.status === 'error') {
-    throw new Error(data.errorMessage || '视频生成失败')
-  }
-
-  // 获取第一个视频URL
-  const videoUrl = data.firstVideoUrl || (data.videoUrls && data.videoUrls[0])
-  
-  if (videoUrl) {
-    console.log('[CozeAPI] ✓ Got video URL:', videoUrl)
-    return videoUrl
-  }
-
-  // 如果没有视频URL，可能是还在处理中
-  if (data.status === 'processing' || data.status === 'pending') {
-    throw new Error('视频正在生成中，请稍候')
-  }
-
-  console.warn('[CozeAPI] No video URL in response:', responseData)
-  return null
+  return res.data as CozeStatusResponse
 }

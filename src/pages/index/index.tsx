@@ -20,7 +20,7 @@ interface FeatureItem {
 }
 
 const features: FeatureItem[] = [
-  { icon: Store, label: '店铺创作', type: 'shop' },
+  { icon: Store, label: '文案创作', type: 'shop' },
   { icon: Package, label: '产品创作', type: 'product' },
   { icon: Copy, label: '批量创作', type: 'batch' },
   { icon: Tv, label: 'TVC广告', type: 'tvc' },
@@ -64,7 +64,7 @@ const templates: TemplateItem[] = [
 
 const IndexPage: FC = () => {
   const handleCreateClick = () => {
-    Taro.navigateTo({ url: '/pages/custom/index' })
+    Taro.navigateTo({ url: '/pages/create/index?tab=product' })
   }
 
   const handleFeatureClick = (type: string) => {
@@ -80,7 +80,7 @@ const IndexPage: FC = () => {
   }
 
   const handleTemplateClick = () => {
-    Taro.navigateTo({ url: '/pages/custom/index' })
+    Taro.navigateTo({ url: '/pages/create/index?tab=product' })
   }
 
   return (

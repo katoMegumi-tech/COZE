@@ -11,7 +11,7 @@
 - 🎬 **视频生成**：支持文字转视频、图片转视频
 - 📝 **多种创作模式**：自定义创作、店铺创作、产品创作
 - 🤖 **AI 提示词优化**：智能润色和优化用户输入的描述
-- 📱 **跨端支持**：同时支持 H5 和微信小程序
+- 📱 **平台支持**：主要面向微信小程序（保留 H5 构建能力）
 - 🎨 **视频参数定制**：分辨率、时长、比例、风格等可配置
 
 ---
@@ -133,7 +133,7 @@
 | 作品 | `/pages/works/index` | 查看历史生成记录 |
 | 我的 | `/pages/profile/index` | 个人中心 |
 
-### 2. 视频生成流程
+### 2. 视频生成流程（异步任务 + 轮询）
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
@@ -158,16 +158,18 @@
    │                           │ 6. 跳转结果页              │
    │                           ├───────────────────────────►│
    │                           │                            │
-   │                           │ 7. POST /api/coze/workflow │
+   │                           │ 7. POST /api/upload/coze   │
    │                           ├───────────────────────────►│
    │                           │                            │
-   │                           │              8. 转发到用户后端
-   │                           │              (192.168.146.161:8080)
+   │                           │ 8. POST /api/coze/workflow/async
+   │                           ├───────────────────────────►│
    │                           │                            │
-   │                           │ 9. 返回 { firstVideoUrl }  │
-   │                           │◄───────────────────────────┤
+   │                           │              后端异步调用 Coze 工作流
    │                           │                            │
-   │  10. 展示视频             │                            │
+   │                           │ 9. 周期性 GET /api/coze/workflow/status/{taskId}
+   │                           ├◄───────────────────────────┤
+   │                           │                            │
+   │  10. 拿到 videoUrls 并展示视频                         │
    │◄──────────────────────────┤                            │
    │                           │                            │
 ```
@@ -182,14 +184,74 @@
 | `/health` | GET | 健康检查 | ✅ |
 | `/ai/optimize-prompt` | POST | AI 优化提示词 | ✅ |
 | `/ai/polish-prompt` | POST | AI 润色提示词 | ✅ |
-| `/coze/workflow` | POST | Coze 工作流代理 ⭐ | ✅ |
+| `/upload/image` | POST | 上传图片（通用） | ✅ |
+| `/upload/coze` | POST | 上传文件到 Coze（返回 fileId）⭐ | ✅ |
+| `/coze/workflow` | POST | 同步工作流（兼容模式） | ✅ |
+| `/coze/workflow/async` | POST | 异步生成视频（返回 taskId）⭐ | ✅ |
+| `/coze/workflow/status/:taskId` | GET | 查询异步任务状态 ⭐ | ✅ |
 | `/template/list` | GET | 获取模板列表 | ✅ |
 | `/template/categories` | GET | 获取模板分类 | ✅ |
 | `/template/:id` | GET | 获取模板详情 | ✅ |
-| `/upload/image` | POST | 上传图片 | ✅ |
 | `/video/generate` | POST | 生成视频 | ⚠️ 未使用 |
 
-### 4. 网络请求架构
+### 4. 前端与 Coze 工作流接口对接说明
+
+前端通过 `src/utils/coze-workflow.ts` 封装了三个核心接口的调用：
+
+- `POST /api/upload/coze`
+  - 调用函数：`uploadFileToCoze(filePath)`
+  - 实现：`Network.uploadFile({ url: '/api/upload/coze', name: 'file', filePath })`
+  - 响应结构（与后端文档一致）：
+    - `code: 0` 表示成功
+    - `message`: 提示信息
+    - `data`:
+      - `id`: 作为后续 `fileId` 使用
+      - `bytes`: 文件大小
+      - `fileName`: 原始文件名
+      - `createdAt`: 上传时间戳
+
+- `POST /api/coze/workflow/async`
+  - 调用函数：`startAsyncWorkflow(body)`
+  - 实现：`Network.request({ url: '/api/coze/workflow/async', method: 'POST', data: body })`
+  - 请求体字段与后端文档字段一一对应：
+    - `fileId` ← `uploadToCoze` 返回的 `data.id`
+    - `productName` ← 业务层中的商品/店铺名称
+    - `productDesc` ← 业务层中的描述文案（如 prompt、businessScope）
+    - `productFeatures` ← 业务层中的卖点
+    - `productPrice` ← 业务层中的价格
+    - `videoAspectRatio` ← `video_aspect_ratio`
+    - `videoLength` ← `video_length`
+    - `videoNum` ← `video_num`
+    - `videoResolution` ← `video_resolution`
+    - `videoScene` ← `video_scene`
+    - `videoStyle` ← `video_style`
+    - `videoSubtitle` ← `video_subtitle`
+  - 成功返回：`{ code: 0, message, data: { taskId } }`
+
+- `GET /api/coze/workflow/status/{taskId}`
+  - 调用函数：`getWorkflowStatus(taskId)`（内部被 `pollWorkflowResult` 使用）
+  - 实现：`Network.request({ url: \`/api/coze/workflow/status/${taskId}\`, method: 'GET' })`
+  - 响应结构：
+    - `code: 0` 表示成功
+    - `data`:
+      - `taskId`
+      - `status`
+      - `progress`
+      - `message`
+      - `videoUrls`
+      - `errorMessage?`
+
+前端结果页 `/pages/result/index` 中的 `runCozeWorkflow` 会依次：
+
+1. 读取本地存储的图片 Base64 和业务参数；
+2. 上传图片到 `/api/upload/coze` 获取 `fileId`；
+3. 通过 `/api/coze/workflow/async` 创建任务；
+4. 轮询 `/api/coze/workflow/status/{taskId}` 直到拿到 `videoUrls`；
+5. 将第一个视频 URL 展示给用户。
+
+---
+
+### 5. 网络请求架构
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐

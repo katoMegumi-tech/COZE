@@ -7,7 +7,6 @@ export default defineAppConfig({
     'pages/profile/index',
     'pages/shop/index',
     'pages/product/index',
-    'pages/custom/index',
     'pages/create/index',
     'pages/result/index',
   ],

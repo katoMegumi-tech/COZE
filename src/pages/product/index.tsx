@@ -6,14 +6,13 @@ import {
   Upload,
   Camera,
   Image,
-  ChevronRight,
   ArrowLeft,
   Sparkles,
   Loader,
 } from 'lucide-react-taro'
 import { imageToBase64 } from '@/utils/coze-workflow'
 
-type CreationTab = 'custom' | 'shop' | 'product'
+type CreationTab = 'shop' | 'product'
 type Mode = 'simple' | 'creative'
 
 const ProductCreatePage: FC = () => {
@@ -41,10 +40,8 @@ const ProductCreatePage: FC = () => {
     Taro.navigateBack()
   }
 
-  const handleTabChange = (tab: CreationTab) => {
-    if (tab === 'custom') {
-      Taro.redirectTo({ url: '/pages/custom/index' })
-    } else if (tab === 'shop') {
+const handleTabChange = (tab: CreationTab) => {
+    if (tab === 'shop') {
       Taro.redirectTo({ url: '/pages/shop/index' })
     }
   }
@@ -144,15 +141,14 @@ const ProductCreatePage: FC = () => {
       subtitleOption: formData.subtitleOption,
     }
     
-    Taro.setStorageSync('video_gen_image', formData.imageBase64)
+    Taro.setStorageSync('video_gen_image', formData.image)
     Taro.setStorageSync('video_gen_params', JSON.stringify(params))
     
     Taro.navigateTo({ url: '/pages/result/index?from=product' })
   }
 
   const tabs = [
-    { key: 'custom' as const, label: '自定义' },
-    { key: 'shop' as const, label: '店铺创作' },
+    { key: 'shop' as const, label: '文案创作' },
     { key: 'product' as const, label: '产品创作' },
   ]
 
@@ -243,19 +239,6 @@ const ProductCreatePage: FC = () => {
           <View className="rounded-full px-4 py-2" style={{ background: mode === 'creative' ? 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)' : '#1f2937' }} onClick={() => setMode('creative')}>
             <Text className="text-white text-sm">创意模式</Text>
           </View>
-        </View>
-
-        <View className="bg-gradient-to-r from-purple-900 to-pink-900 rounded-xl p-4 mb-4 flex flex-row items-center justify-between">
-          <View className="flex flex-row items-center gap-3">
-            <View className="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
-              <Text className="text-purple-600 font-bold text-xs">千问</Text>
-            </View>
-            <View className="flex flex-col">
-              <Text className="text-white text-xs font-medium">千问APP</Text>
-              <Text className="text-gray-300 text-xs">拍照问答，生活常识科普，一拍全知</Text>
-            </View>
-          </View>
-          <ChevronRight size={16} color="#9CA3AF" />
         </View>
 
         {mode === 'simple' ? (
