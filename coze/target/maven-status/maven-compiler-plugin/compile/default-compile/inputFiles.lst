@@ -1,0 +1,17 @@
+D:\合作项目\AI电商\页面源码设计\AI4.0\coze\src\main\java\com\cqie\demo01\config\AsyncConfig.java
+D:\合作项目\AI电商\页面源码设计\AI4.0\coze\src\main\java\com\cqie\demo01\config\CozeConfig.java
+D:\合作项目\AI电商\页面源码设计\AI4.0\coze\src\main\java\com\cqie\demo01\controller\CozeWorkflowController.java
+D:\合作项目\AI电商\页面源码设计\AI4.0\coze\src\main\java\com\cqie\demo01\controller\FileUploadController.java
+D:\合作项目\AI电商\页面源码设计\AI4.0\coze\src\main\java\com\cqie\demo01\CozeVideoApiApplication.java
+D:\合作项目\AI电商\页面源码设计\AI4.0\coze\src\main\java\com\cqie\demo01\dto\request\CozeWorkflowRequest.java
+D:\合作项目\AI电商\页面源码设计\AI4.0\coze\src\main\java\com\cqie\demo01\dto\response\CozeFileUploadResponse.java
+D:\合作项目\AI电商\页面源码设计\AI4.0\coze\src\main\java\com\cqie\demo01\dto\response\CozeWorkflowResponse.java
+D:\合作项目\AI电商\页面源码设计\AI4.0\coze\src\main\java\com\cqie\demo01\dto\response\TaskStatusResponse.java
+D:\合作项目\AI电商\页面源码设计\AI4.0\coze\src\main\java\com\cqie\demo01\dto\response\VideoGenerationResponse.java
+D:\合作项目\AI电商\页面源码设计\AI4.0\coze\src\main\java\com\cqie\demo01\result\Result.java
+D:\合作项目\AI电商\页面源码设计\AI4.0\coze\src\main\java\com\cqie\demo01\service\AsyncWorkflowService.java
+D:\合作项目\AI电商\页面源码设计\AI4.0\coze\src\main\java\com\cqie\demo01\service\CozeWorkflowService.java
+D:\合作项目\AI电商\页面源码设计\AI4.0\coze\src\main\java\com\cqie\demo01\service\FileUploadService.java
+D:\合作项目\AI电商\页面源码设计\AI4.0\coze\src\main\java\com\cqie\demo01\service\impl\CozeWorkflowServiceImpl.java
+D:\合作项目\AI电商\页面源码设计\AI4.0\coze\src\main\java\com\cqie\demo01\service\impl\FileUploadServiceImpl.java
+D:\合作项目\AI电商\页面源码设计\AI4.0\coze\src\main\java\com\cqie\demo01\service\TaskManager.java

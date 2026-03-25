@@ -1,0 +1,90 @@
+package com.cqie.demo01.controller;
+
+import com.cqie.demo01.dto.request.CozeWorkflowRequest;
+import com.cqie.demo01.dto.response.TaskStatusResponse;
+import com.cqie.demo01.result.Result;
+import com.cqie.demo01.service.AsyncWorkflowService;
+import com.cqie.demo01.service.TaskManager;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * Coze 工作流控制器
+ */
+@Tag(name = "Coze 工作流", description = "视频生成工作流相关接口")
+@RestController
+@RequestMapping("/api/coze")
+@CrossOrigin()
+public class CozeWorkflowController {
+    
+    private static final Logger log = LoggerFactory.getLogger(CozeWorkflowController.class);
+    
+    private final AsyncWorkflowService asyncWorkflowService;
+    private final TaskManager taskManager;
+
+    public CozeWorkflowController(AsyncWorkflowService asyncWorkflowService, TaskManager taskManager) {
+        this.asyncWorkflowService = asyncWorkflowService;
+        this.taskManager = taskManager;
+    }
+
+    /**
+     * 异步运行 Coze 工作流生成视频
+     * 
+     * @param request 工作流请求参数
+     * @return 任务ID
+     */
+    @Operation(summary = "异步生成视频", description = "提交视频生成任务，立即返回任务ID")
+    @PostMapping("/workflow/async")
+    public Result<Map<String, String>> runWorkflowAsync(@Valid @RequestBody CozeWorkflowRequest request) {
+        
+        log.info("========== 收到前端请求（异步） ==========");
+        log.info("fileId: {}", request.getFileId());
+        log.info("productName: {}", request.getProductName());
+        log.info("productDesc: {}", request.getProductDesc());
+        log.info("productFeatures: {}", request.getProductFeatures());
+        log.info("productPrice: {}", request.getProductPrice());
+        log.info("videoAspectRatio: {}", request.getVideoAspectRatio());
+        log.info("videoLength: {}", request.getVideoLength());
+        log.info("videoNum: {}", request.getVideoNum());
+        log.info("videoResolution: {}", request.getVideoResolution());
+        log.info("videoScene: {}", request.getVideoScene());
+        log.info("videoStyle: {}", request.getVideoStyle());
+        log.info("videoSubtitle: {}", request.getVideoSubtitle());
+        log.info("==========================================");
+        
+        // 创建任务
+        String taskId = taskManager.createTask();
+        
+        // 异步执行（通过 Service 调用）
+        asyncWorkflowService.executeWorkflowAsync(taskId, request);
+        
+        Map<String, String> result = new HashMap<>();
+        result.put("taskId", taskId);
+        result.put("message", "任务已提交，请使用任务ID查询进度");
+        
+        return Result.success(result);
+    }
+    
+    /**
+     * 查询任务状态
+     * 
+     * @param taskId 任务ID
+     * @return 任务状态
+     */
+    @Operation(summary = "查询任务状态", description = "根据任务ID查询视频生成进度和结果")
+    @GetMapping("/workflow/status/{taskId}")
+    public Result<TaskStatusResponse> getTaskStatus(@PathVariable String taskId) {
+        TaskStatusResponse task = taskManager.getTask(taskId);
+        if (task == null) {
+            return Result.error("任务不存在");
+        }
+        return Result.success(task);
+    }
+}

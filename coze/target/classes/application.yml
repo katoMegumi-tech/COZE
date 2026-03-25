@@ -1,0 +1,38 @@
+spring:
+  application:
+    name: coze-video-api
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 512MB
+      max-request-size: 512MB
+
+server:
+  port: 8088
+
+# Swagger 配置
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+coze:
+  token: pat_BCVIs2dfos4sM6xfDeltCNZEgbp2aOyP82DkLzEKgjMM6UjC7L2hXsmkG0qx9cjE
+  base-url: https://api.coze.cn
+  workflow-id: "7619172987610644522"
+  timeout-minutes: 10
+
+# Redis 配置
+spring.data.redis:
+  host: localhost
+  port: 6379
+  password: 
+  database: 0
+  timeout: 3000ms
+  lettuce:
+    pool:
+      max-active: 8
+      max-idle: 8
+      min-idle: 0
+      max-wait: -1ms
