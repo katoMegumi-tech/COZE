@@ -6,45 +6,55 @@
 /* 小程序页面容器高度设置，确保垂直居中生效 */
 page {
   height: 100%;
+  width: 100%;
 }
 
 :root,
 page,
 root-portal {
-  --background: #000000;
+  --tech-1: #08e7de;
+  --tech-2: #0abff3;
+  --tech-3: #00759a;
+  --tech-4: #00465a;
+  --background: #020a10;
   --foreground: #ffffff;
-  --card: #1a1a1a;
+  --card: #061b24;
   --card-foreground: #ffffff;
-  --popover: #1a1a1a;
+  --popover: #061b24;
   --popover-foreground: #ffffff;
-  --primary: #a855f7;
+  --primary: var(--tech-2);
   --primary-foreground: #ffffff;
-  --secondary: #ec4899;
+  --secondary: var(--tech-1);
   --secondary-foreground: #ffffff;
-  --muted: #262626;
+  --muted: #0a2530;
   --muted-foreground: #9ca3af;
-  --accent: #374151;
+  --accent: #0c2f3d;
   --accent-foreground: #ffffff;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
-  --border: #374151;
-  --input: #1f2937;
-  --ring: #a855f7;
-  --sidebar: #000000;
+  --border: #0f3a4a;
+  --input: #0a2530;
+  --ring: var(--tech-2);
+  --sidebar: #020a10;
   --sidebar-foreground: #ffffff;
-  --sidebar-primary: #a855f7;
+  --sidebar-primary: var(--tech-2);
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #1f2937;
+  --sidebar-accent: #0a2530;
   --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: #374151;
-  --sidebar-ring: #a855f7;
-  --surface: #111827;
+  --sidebar-border: #0f3a4a;
+  --sidebar-ring: var(--tech-2);
+  --surface: #061b24;
   --surface-foreground: #9ca3af;
   --code: var(--surface);
-  --code-highlight: #1f2937;
+  --code-highlight: #0a2530;
   --code-number: #6b7280;
-  --selection: #a855f7;
+  --selection: var(--tech-2);
   --selection-foreground: #ffffff;
+  --glow-1: rgba(8, 231, 222, 0.45);
+  --glow-2: rgba(10, 191, 243, 0.45);
+  --glow-3: rgba(0, 117, 154, 0.35);
+  --gradient-primary: linear-gradient(90deg, var(--tech-1) 0%, var(--tech-2) 55%, var(--tech-3) 100%);
+  --gradient-surface: linear-gradient(135deg, #03141d 0%, #041e2a 50%, #020a10 100%);
   --tw-shadow: 0 0 #0000;
   --tw-shadow-color: initial;
   --tw-shadow-alpha: 100%;
@@ -154,4 +164,20 @@ image {
 ::selection {
   background-color: var(--selection);
   color: var(--selection-foreground);
+}
+
+.fx-gradient-primary {
+  background: var(--gradient-primary);
+}
+
+.fx-glow-primary {
+  box-shadow: 0 0 20px var(--glow-2);
+}
+
+.fx-glow-secondary {
+  box-shadow: 0 0 20px var(--glow-1);
+}
+
+.fx-border-glow {
+  box-shadow: 0 0 0 1px rgba(10, 191, 243, 0.35), 0 0 18px rgba(10, 191, 243, 0.22);
 }

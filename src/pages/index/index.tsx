@@ -1,30 +1,19 @@
-import { View, Text, ScrollView } from '@tarojs/components'
-import Taro from '@tarojs/taro'
+import { View, Text, Image as TaroImage } from '@tarojs/components'
+import Taro, { useReachBottom } from '@tarojs/taro'
 import type { FC } from 'react'
-import {
-  Store,
-  Package,
-  Copy,
-  Tv,
-  FileText,
-  Sparkles,
-  Video,
-  Users,
-  Play,
-} from 'lucide-react-taro'
+import { useCallback, useState } from 'react'
+import { Store, Package, Copy, Sparkles, Users, Play, Search } from 'lucide-react-taro'
 
 interface FeatureItem {
   icon: FC<any>
   label: string
-  type: 'shop' | 'product' | 'batch' | 'tvc' | 'draft' | 'script'
+  type: 'shop' | 'product' | 'batch' | 'script'
 }
 
 const features: FeatureItem[] = [
   { icon: Store, label: '文案创作', type: 'shop' },
   { icon: Package, label: '产品创作', type: 'product' },
   { icon: Copy, label: '批量创作', type: 'batch' },
-  { icon: Tv, label: 'TVC广告', type: 'tvc' },
-  { icon: FileText, label: '创意手稿', type: 'draft' },
   { icon: Sparkles, label: 'AI脚本', type: 'script' },
 ]
 
@@ -62,9 +51,42 @@ const templates: TemplateItem[] = [
   },
 ]
 
+interface WorkItem {
+  id: string
+  title: string
+  viewCount: number
+  thumbnail: string
+}
+
+const WORKS_PAGE_SIZE = 6
+const WORKS_MAX_COUNT = 24
+
+const createWorkItems = (startIndex: number, count: number): WorkItem[] => {
+  return Array.from({ length: count }).map((_, idx) => {
+    const seed = startIndex + idx
+    const template = templates[seed % templates.length]
+    return {
+      id: `work_${seed}`,
+      title: template.title,
+      viewCount: template.usageCount + seed * 7,
+      thumbnail: `https://picsum.photos/300/400?random=${seed}`,
+    }
+  })
+}
+
 const IndexPage: FC = () => {
-  const handleCreateClick = () => {
-    Taro.navigateTo({ url: '/pages/create/index?tab=product' })
+  const [works, setWorks] = useState<WorkItem[]>(() =>
+    createWorkItems(1, WORKS_PAGE_SIZE),
+  )
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
+
+  const handleSearchClick = () => {
+    Taro.showToast({ title: '搜索功能开发中', icon: 'none' })
+  }
+
+  const handleWorkClick = () => {
+    Taro.navigateTo({ url: '/pages/works/index' })
   }
 
   const handleFeatureClick = (type: string) => {
@@ -79,131 +101,149 @@ const IndexPage: FC = () => {
     }
   }
 
-  const handleTemplateClick = () => {
-    Taro.navigateTo({ url: '/pages/create/index?tab=product' })
-  }
+  const loadMoreWorks = useCallback(() => {
+    if (isLoadingMore || !hasMore) return
+    if (works.length >= WORKS_MAX_COUNT) {
+      setHasMore(false)
+      return
+    }
+
+    setIsLoadingMore(true)
+    const nextCount = Math.min(WORKS_PAGE_SIZE, WORKS_MAX_COUNT - works.length)
+    const nextStartIndex = works.length + 1
+    setWorks((prev) => [...prev, ...createWorkItems(nextStartIndex, nextCount)])
+    if (works.length + nextCount >= WORKS_MAX_COUNT) setHasMore(false)
+    setIsLoadingMore(false)
+  }, [hasMore, isLoadingMore, works.length])
+
+  useReachBottom(() => {
+    loadMoreWorks()
+  })
 
   return (
-    <View className="min-h-screen bg-black">
-      {/* 宣传区 - 模拟AI人物背景 */}
-      <View 
-        className="relative overflow-hidden"
-        style={{ height: '380px' }}
-      >
-        {/* 渐变背景 */}
-        <View 
-          className="absolute inset-0"
-          style={{
-            background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0c29 100%)',
-          }}
-        />
-        
-        {/* 装饰性渐变圆 */}
-        <View 
-          className="absolute"
-          style={{
-            width: '300px',
-            height: '300px',
-            borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(168, 85, 247, 0.3) 0%, transparent 70%)',
-            top: '-50px',
-            right: '-50px',
-          }}
-        />
-        <View 
-          className="absolute"
-          style={{
-            width: '250px',
-            height: '250px',
-            borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(236, 72, 153, 0.2) 0%, transparent 70%)',
-            bottom: '20px',
-            left: '-80px',
-          }}
-        />
+    <View className="min-h-screen bg-[color:var(--background)] overflow-hidden">
+      <View className="px-4 pt-4 pb-3 flex flex-row items-center">
+        <Text className="text-white text-lg font-semibold">AI电商</Text>
+        <View
+          className="ml-3 flex-1 bg-gray-900 rounded-full px-4 py-2 flex flex-row items-center active:opacity-80"
+          onClick={handleSearchClick}
+        >
+          <Search size={14} color="#9CA3AF" />
+          <Text className="text-gray-400 text-xs ml-2">搜索商品/店铺/文案</Text>
+        </View>
+      </View>
 
-        {/* 内容 */}
-        <View className="relative z-10 flex flex-col items-center justify-center h-full px-4">
-          <Text 
-            className="font-bold mb-2"
-            style={{ 
-              fontSize: '32px',
-              background: 'linear-gradient(90deg, #fbbf24, #f59e0b)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-            }}
-          >
-            谁用谁火
-          </Text>
-          <Text className="text-white text-xl font-semibold mb-3">
-            AI视频自动生成器
-          </Text>
-          <Text className="text-gray-300 text-sm mb-2">
-            一张图片+文案
-          </Text>
-          <Text className="text-gray-300 text-sm mb-6">
-            一键创作爆款视频
-          </Text>
-
-          {/* 一键创作按钮 */}
+      <View className="px-4">
+        <View className="relative overflow-hidden rounded-2xl" style={{ height: '200px' }}>
           <View
-            className="flex flex-row items-center justify-center rounded-xl active:opacity-80"
+            className="absolute inset-0"
             style={{
-              background: 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)',
-              width: '160px',
-              height: '44px',
+              background: 'var(--gradient-surface)',
             }}
-            onClick={handleCreateClick}
-          >
-            <Sparkles size={18} color="#ffffff" />
-            <Text className="text-white font-medium text-base ml-2">一键创作</Text>
+          />
+          <View
+            className="absolute"
+            style={{
+              width: '240px',
+              height: '240px',
+              borderRadius: '50%',
+              background:
+                'radial-gradient(circle, var(--glow-2) 0%, transparent 70%)',
+              top: '-80px',
+              right: '-80px',
+            }}
+          />
+          <View
+            className="absolute"
+            style={{
+              width: '220px',
+              height: '220px',
+              borderRadius: '50%',
+              background:
+                'radial-gradient(circle, var(--glow-1) 0%, transparent 70%)',
+              bottom: '-90px',
+              left: '-90px',
+            }}
+          />
+
+          <View className="relative z-10 h-full px-5 py-5 flex flex-col justify-between">
+            <View>
+              <Text className="text-white text-xl font-semibold">爆款内容一站生成</Text>
+              <Text className="text-gray-300 text-xs mt-2">
+                文案 · 商品视频 · 详情页素材
+              </Text>
+            </View>
+            <View className="flex flex-row gap-3">
+              <View
+                className="flex-1 rounded-xl py-3 flex flex-row items-center justify-center active:opacity-80"
+                style={{ background: 'rgba(255, 255, 255, 0.12)' }}
+                onClick={() => handleFeatureClick('shop')}
+              >
+                <Text className="text-white text-sm font-medium">文案创作</Text>
+              </View>
+              <View
+                className="flex-1 rounded-xl py-3 flex flex-row items-center justify-center active:opacity-80"
+                style={{
+                  background: 'var(--gradient-primary)',
+                  boxShadow: '0 0 18px rgba(10, 191, 243, 0.35)',
+                }}
+                onClick={() => handleFeatureClick('product')}
+              >
+                <Sparkles size={16} color="#ffffff" />
+                <Text className="text-white text-sm font-medium ml-2">产品创作</Text>
+              </View>
+            </View>
           </View>
         </View>
       </View>
 
-      {/* 功能入口 */}
-      <View className="px-4 py-6">
-        <View className="grid grid-cols-3 gap-4">
-          {features.map((feature, index) => {
-            const IconComponent = feature.icon
-            return (
-              <View
-                key={index}
-                className="bg-gray-900 rounded-xl p-4 flex flex-col items-center gap-2 active:opacity-80"
-                onClick={() => handleFeatureClick(feature.type)}
-              >
-                <IconComponent size={24} color="#ffffff" />
-                <Text className="text-white text-xs">{feature.label}</Text>
-              </View>
-            )
-          })}
+      <View className="px-4 py-5">
+        <View className="bg-gray-900 rounded-2xl p-4">
+          <View className="flex flex-row items-center justify-between mb-4">
+            <Text className="text-white text-base font-semibold">常用入口</Text>
+            <Text className="text-gray-400 text-xs">快速开始</Text>
+          </View>
+          <View className="grid grid-cols-4 gap-3">
+            {features.map((feature, index) => {
+              const IconComponent = feature.icon
+              return (
+                <View
+                  key={index}
+                  className="flex flex-col items-center active:opacity-80"
+                  onClick={() => handleFeatureClick(feature.type)}
+                >
+                  <View className="w-12 h-12 rounded-xl bg-gray-800 flex items-center justify-center">
+                    <IconComponent size={20} color="#ffffff" />
+                  </View>
+                  <Text className="text-gray-200 text-xs mt-2">{feature.label}</Text>
+                </View>
+              )
+            })}
+          </View>
         </View>
       </View>
 
-      {/* 创意模版 */}
       <View className="px-4 pb-24">
         <View className="flex flex-row items-center justify-between mb-4">
-          <Text className="text-white text-lg font-semibold">创意模版</Text>
-          <Text className="text-gray-400 text-sm">查看更多</Text>
+          <Text className="text-white text-lg font-semibold">作品展示</Text>
+          <Text className="text-gray-400 text-sm" onClick={handleWorkClick}>
+            查看更多
+          </Text>
         </View>
 
-        <ScrollView
-          scrollX
-          className="w-full"
-          style={{ whiteSpace: 'nowrap' }}
-        >
-          {templates.map((template) => (
+        <View className="grid grid-cols-2 gap-3">
+          {works.map((work) => (
             <View
-              key={template.id}
-              className="inline-block mr-4 w-40 bg-gray-900 rounded-xl overflow-hidden active:opacity-80"
-              onClick={() => handleTemplateClick()}
+              key={work.id}
+              className="bg-gray-900 rounded-xl overflow-hidden active:opacity-80"
+              onClick={handleWorkClick}
             >
-              <View 
+              <View
                 className="aspect-[3/4] bg-gray-800 flex items-center justify-center"
                 style={{ position: 'relative' }}
               >
-                <Video size={40} color="#6B7280" />
-                <View 
+                <TaroImage src={work.thumbnail} mode="aspectFill" className="w-full h-full" />
+                <View
                   style={{
                     position: 'absolute',
                     top: '8px',
@@ -221,19 +261,21 @@ const IndexPage: FC = () => {
                 </View>
               </View>
               <View className="p-3">
-                <Text className="text-white text-sm font-medium mb-1">
-                  {template.title}
-                </Text>
+                <Text className="text-white text-sm font-medium mb-1">{work.title}</Text>
                 <View className="flex flex-row items-center gap-1">
                   <Users size={12} color="#9CA3AF" />
-                  <Text className="text-gray-400 text-xs">
-                    {template.usageCount}人使用
-                  </Text>
+                  <Text className="text-gray-400 text-xs">{work.viewCount}次浏览</Text>
                 </View>
               </View>
             </View>
           ))}
-        </ScrollView>
+        </View>
+
+        <View className="py-5 flex flex-row items-center justify-center">
+          <Text className="text-gray-500 text-xs">
+            {isLoadingMore ? '加载中...' : hasMore ? '上拉加载更多' : '没有更多了'}
+          </Text>
+        </View>
       </View>
     </View>
   )

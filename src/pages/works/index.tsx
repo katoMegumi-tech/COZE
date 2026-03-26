@@ -4,9 +4,9 @@ import { Video } from 'lucide-react-taro'
 
 const WorksPage: FC = () => {
   return (
-    <View className="flex flex-col items-center justify-center min-h-screen bg-black p-4">
+    <View className="flex flex-col items-center justify-center min-h-screen bg-[color:var(--background)] p-4 overflow-hidden">
       <View className="flex flex-col items-center gap-4">
-        <Video size={48} color="#EC4899" />
+        <Video size={48} color="#0abff3" />
         <Text className="text-white text-lg font-medium">我的作品</Text>
         <Text className="text-gray-400 text-sm text-center">
           作品管理功能开发中，敬请期待

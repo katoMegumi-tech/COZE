@@ -12,14 +12,14 @@ export default defineAppConfig({
   ],
   window: {
     backgroundTextStyle: 'dark',
-    navigationBarBackgroundColor: '#000000',
+    navigationBarBackgroundColor: '#020a10',
     navigationBarTitleText: 'AI视频生成器',
     navigationBarTextStyle: 'white',
   },
   tabBar: {
     color: '#9CA3AF',
-    selectedColor: '#EC4899',
-    backgroundColor: '#000000',
+    selectedColor: '#0abff3',
+    backgroundColor: '#020a10',
     borderStyle: 'black',
     list: [
       {

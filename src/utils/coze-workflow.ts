@@ -7,13 +7,19 @@ import Taro from '@tarojs/taro'
 import { Network } from '../network'
 
 // API配置 - 直接调用 Java 后端 (8088) 的 /api 前缀接口
+const API_PREFIX =
+  typeof PROJECT_DOMAIN === 'string' &&
+  PROJECT_DOMAIN.replace(/\/+$/, '').endsWith('/api')
+    ? ''
+    : '/api'
+
 const API_CONFIG = {
   // 上传文件到 Coze 对象存储
-  uploadToCoze: '/upload/coze',
+  uploadToCoze: `${API_PREFIX}/upload/coze`,
   // 异步启动工作流
-  workflowAsync: '/coze/workflow/async',
+  workflowAsync: `${API_PREFIX}/coze/workflow/async`,
   // 查询工作流状态
-  workflowStatus: (taskId: string) => `/coze/workflow/status/${taskId}`,
+  workflowStatus: (taskId: string) => `${API_PREFIX}/coze/workflow/status/${taskId}`,
 }
 
 export interface WorkflowParams {
@@ -44,6 +50,12 @@ export interface WorkflowResult {
   success: boolean
   videoUrl?: string
   error?: string
+}
+
+export interface RunWorkflowOptions {
+  isCancelled?: () => boolean
+  maxWaitMs?: number
+  intervalMs?: number
 }
 
 interface CozeUploadResponse {
@@ -116,7 +128,8 @@ export async function imageToBase64(filePath: string): Promise<string> {
  */
 export async function runCozeWorkflow(
   params: WorkflowParams,
-  onProgress?: (progress: WorkflowProgress) => void
+  onProgress?: (progress: WorkflowProgress) => void,
+  options?: RunWorkflowOptions,
 ): Promise<WorkflowResult> {
   console.log('[CozeAPI] Starting workflow with params:', {
     ...params,
@@ -124,6 +137,10 @@ export async function runCozeWorkflow(
   })
 
   try {
+    if (options?.isCancelled?.()) {
+      return { success: false, error: '已取消' }
+    }
+
     // 通知开始
     onProgress?.({
       event: 'start',
@@ -138,6 +155,9 @@ export async function runCozeWorkflow(
     }
 
     const uploadResp = await uploadFileToCoze(firstImage)
+    if (options?.isCancelled?.()) {
+      return { success: false, error: '已取消' }
+    }
     if (!uploadResp) {
       throw new Error('文件上传失败')
     }
@@ -172,6 +192,9 @@ export async function runCozeWorkflow(
       videoSubtitle: params.video_subtitle,
     })
 
+    if (options?.isCancelled?.()) {
+      return { success: false, error: '已取消' }
+    }
     if (!startResp) {
       throw new Error('工作流启动失败')
     }
@@ -191,7 +214,7 @@ export async function runCozeWorkflow(
     })
 
     // 3. 轮询任务状态 /api/coze/workflow/status/{taskId}
-    const videoUrl = await pollWorkflowResult(taskId, onProgress)
+    const videoUrl = await pollWorkflowResult(taskId, onProgress, options)
 
     if (videoUrl) {
       onProgress?.({
@@ -204,6 +227,9 @@ export async function runCozeWorkflow(
 
     return { success: false, error: '未获取到视频URL' }
   } catch (error: any) {
+    if (String(error?.message || '').includes('已取消')) {
+      return { success: false, error: '已取消' }
+    }
     console.error('[CozeAPI] Workflow failed:', error)
     return { success: false, error: error.message || '工作流调用失败' }
   }
@@ -270,13 +296,20 @@ async function startAsyncWorkflow(
 async function pollWorkflowResult(
   taskId: string,
   onProgress?: (progress: WorkflowProgress) => void,
+  options?: RunWorkflowOptions,
 ): Promise<string | null> {
-  const maxWaitMs = 1000 * 60 * 5 // 最多等待 5 分钟
-  const intervalMs = 3000
+  const maxWaitMs = options?.maxWaitMs ?? 1000 * 60 * 5
+  const intervalMs = options?.intervalMs ?? 3000
   const start = Date.now()
 
   while (Date.now() - start < maxWaitMs) {
+    if (options?.isCancelled?.()) {
+      throw new Error('已取消')
+    }
     const status = await getWorkflowStatus(taskId)
+    if (options?.isCancelled?.()) {
+      throw new Error('已取消')
+    }
 
     if (!status) {
       throw new Error('查询任务状态失败')
@@ -290,10 +323,14 @@ async function pollWorkflowResult(
 
     const data = status.data
     const videoUrl = data.videoUrls?.[0]
-    const isFinish =
-      !!videoUrl ||
-      data.status === 'finished' ||
-      data.status === 'failed'
+    const normalizedStatus = String(data.status || '').trim().toLowerCase()
+    const isFailed = normalizedStatus === 'failed' || normalizedStatus === 'error'
+    const isDone =
+      normalizedStatus === 'completed' ||
+      normalizedStatus === 'finished' ||
+      normalizedStatus === 'success' ||
+      normalizedStatus === 'done'
+    const isFinish = !!videoUrl || isDone || isFailed
 
     onProgress?.({
       event: 'status',
@@ -307,7 +344,7 @@ async function pollWorkflowResult(
       return videoUrl
     }
 
-    if (data.status === 'failed') {
+    if (isFailed) {
       throw new Error(data.errorMessage || '视频生成失败')
     }
 

@@ -11,6 +11,7 @@ import {
   Loader,
 } from 'lucide-react-taro'
 import { imageToBase64 } from '@/utils/coze-workflow'
+import { Network } from '@/network'
 
 type CreationTab = 'shop' | 'product'
 type Mode = 'simple' | 'creative'
@@ -33,6 +34,7 @@ interface FormData {
   // 通用参数
   image: string  // 本地临时路径
   imageBase64: string  // base64编码（用于传递给Coze）
+  fileId?: string  // 上传到Coze后的文件ID
   generationCount: number
   channel: string
   videoLength: number
@@ -77,9 +79,9 @@ const CreatePage: FC = () => {
 
   const optionStyle = (selected: boolean) =>
     ({
-      background: selected ? 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)' : '#1f2937',
+      background: selected ? 'var(--gradient-primary)' : '#1f2937',
       borderWidth: selected ? 0 : 1,
-      borderColor: '#a855f7',
+      borderColor: 'var(--tech-2)',
     }) as const
 
   const copywritingTypeOptions = [
@@ -125,29 +127,47 @@ const CreatePage: FC = () => {
         sizeType: ['compressed'],
         sourceType: ['album', 'camera'],
       })
-      
+
       const tempFilePath = result.tempFilePaths[0]
       console.log('[CreatePage] Selected image:', tempFilePath)
-      
+
       // 显示本地预览
       setFormData({ ...formData, image: tempFilePath, imageBase64: '' })
-      
+
       // 转换为base64（用于传递给Coze工作流）
       setIsConverting(true)
       Taro.showLoading({ title: '处理图片...' })
-      
+
       try {
-        const base64 = await imageToBase64(tempFilePath)
-        console.log('[CreatePage] Image converted to base64, length:', base64.length)
+        // 上传图片到 Coze 获取 fileId
+        const uploadResponse = await Network.upload.coze(tempFilePath)
+        console.log('[CreatePage] Upload response:', uploadResponse)
         
-        setFormData(prev => ({
-          ...prev,
-          image: tempFilePath,
-          imageBase64: base64,
-        }))
-        
-        Taro.hideLoading()
-        Taro.showToast({ title: '图片准备完成', icon: 'success' })
+        if (uploadResponse.statusCode === 200 && uploadResponse.data) {
+          const uploadData = JSON.parse(uploadResponse.data)
+          if (uploadData.code === 200 && uploadData.data) {
+            const fileId = uploadData.data.fileId
+            console.log('[CreatePage] Upload success, fileId:', fileId)
+            
+            // 转换为base64（用于传递给Coze工作流）
+            const base64 = await imageToBase64(tempFilePath)
+            console.log('[CreatePage] Image converted to base64, length:', base64.length)
+
+            setFormData(prev => ({
+              ...prev,
+              image: tempFilePath,
+              imageBase64: base64,
+              fileId: fileId, // 存储文件ID
+            }))
+
+            Taro.hideLoading()
+            Taro.showToast({ title: '图片准备完成', icon: 'success' })
+          } else {
+            throw new Error(uploadData.message || '上传失败')
+          }
+        } else {
+          throw new Error('上传失败')
+        }
       } catch (convertError) {
         console.error('[CreatePage] Convert error:', convertError)
         Taro.hideLoading()
@@ -162,8 +182,13 @@ const CreatePage: FC = () => {
   }
 
   const getDefaultImagePath = async (): Promise<string> => {
-    const res = await Taro.getImageInfo({ src: '/assets/tabbar/house.png' })
-    return (res as any).path || (res as any).tempFilePath || ''
+    try {
+      const res = await Taro.getImageInfo({ src: '/assets/tabbar/house.png' })
+      return (res as any).path || (res as any).tempFilePath || ''
+    } catch (error) {
+      console.error('[CreatePage] Get default image error:', error)
+      return ''
+    }
   }
 
   const buildCopyPrompt = () => {
@@ -204,56 +229,138 @@ const CreatePage: FC = () => {
       if (!imagePath) {
         try {
           imagePath = await getDefaultImagePath()
-        } catch {
+        } catch (error) {
+          console.error('[CreatePage] Get default image error:', error)
           imagePath = ''
         }
       }
 
-      if (!imagePath) {
-        Taro.showToast({ title: '默认参考图不可用，请上传参考图片', icon: 'none' })
-        return
-      }
+      // 对于文案创作模式，图片是可选的，不需要强制要求
+      // if (!imagePath) {
+      //   Taro.showToast({ title: '默认参考图不可用，请上传参考图片', icon: 'none' })
+      //   return
+      // }
     }
 
     setIsGenerating(true)
     try {
-      console.log('[CreatePage] Starting video generation...')
-      
-      // 构建参数并导航到结果页面
-      // 注意：base64数据可能很长，使用Taro.setStorageSync传递
-      const copyPrompt = buildCopyPrompt()
-      const resultParams = {
-        mode: activeTab,
-        copywritingType: formData.copywritingType,
-        productOrServiceName: formData.productOrServiceName,
-        coreSellingPoints: formData.coreSellingPoints,
-        targetAudience: formData.targetAudience,
-        usageScenario: formData.usageScenario,
-        toneStyle: formData.toneStyle,
-        keywords: formData.keywords,
-        wordLimit: formData.wordLimit,
-        structurePreference: formData.structurePreference,
-        forbiddenWords: formData.forbiddenWords,
-        referenceLinks: formData.referenceLinks,
-        prompt: activeTab === 'shop' ? copyPrompt : formData.prompt,
-        // 通用参数
-        generationCount: formData.generationCount,
-        videoLength: formData.videoLength,
-        resolution: formData.resolution,
-        videoFormat: formData.videoFormat,
-        subtitleOption: formData.subtitleOption,
+      if (activeTab === 'shop') {
+        // 文案创作模式：调用后端 API 生成文案
+        console.log('[CreatePage] Starting copywriting generation...')
+        
+        // 构建请求参数
+        const requestData = {
+          fileIds: formData.fileId ? [formData.fileId] : undefined,
+          productServiceName: formData.productOrServiceName,
+          coreSellingPoints: formData.coreSellingPoints,
+          targetAudience: formData.targetAudience,
+          usageScenario: formData.usageScenario,
+          copyType: formData.copywritingType,
+          toneStyle: formData.toneStyle,
+          wordCountLimit: formData.wordLimit,
+          structurePreference: formData.structurePreference,
+          keywords: formData.keywords,
+          forbiddenWords: formData.forbiddenWords,
+          referenceLink: formData.referenceLinks,
+        }
+        
+        console.log('[CreatePage] Copywriting request data:', requestData)
+        
+        // 调用后端 API
+        const response = await Network.copywriting.generate(requestData)
+        
+        console.log('[CreatePage] Copywriting API response:', response)
+        
+        if (response.statusCode === 200 && response.data && response.data.code === 200) {
+          const copywritingResponse = response.data.data
+          
+          if (copywritingResponse.status === 'SUCCESS') {
+            console.log('[CreatePage] Copywriting generation success:', copywritingResponse)
+            
+            // 构建参数并导航到结果页面
+            const resultParams = {
+              mode: activeTab,
+              copywritingType: formData.copywritingType,
+              productOrServiceName: formData.productOrServiceName,
+              coreSellingPoints: formData.coreSellingPoints,
+              targetAudience: formData.targetAudience,
+              usageScenario: formData.usageScenario,
+              toneStyle: formData.toneStyle,
+              keywords: formData.keywords,
+              wordLimit: formData.wordLimit,
+              structurePreference: formData.structurePreference,
+              forbiddenWords: formData.forbiddenWords,
+              referenceLinks: formData.referenceLinks,
+              prompt: buildCopyPrompt(),
+              // 通用参数
+              generationCount: formData.generationCount,
+              videoLength: formData.videoLength,
+              resolution: formData.resolution,
+              videoFormat: formData.videoFormat,
+              subtitleOption: formData.subtitleOption,
+              // 后端返回的文案内容
+              generatedContent: copywritingResponse.content,
+              outputLinks: copywritingResponse.outputLinks,
+            }
+
+            // 将图片本地路径存储到本地
+            Taro.setStorageSync('video_gen_image', imagePath)
+            Taro.setStorageSync('video_gen_params', JSON.stringify(resultParams))
+
+            console.log('[CreatePage] Navigating to result page')
+
+            // 导航到结果页面
+            Taro.navigateTo({
+              url: '/pages/result/index?from=create',
+            })
+          } else {
+            console.error('[CreatePage] Copywriting generation failed:', copywritingResponse.errorMessage)
+            Taro.showToast({ title: `生成失败: ${copywritingResponse.errorMessage}`, icon: 'none' })
+          }
+        } else {
+          console.error('[CreatePage] API request failed:', response)
+          Taro.showToast({ title: '接口请求失败，请重试', icon: 'none' })
+        }
+      } else {
+        // 产品创作模式：保持原有逻辑
+        console.log('[CreatePage] Starting video generation...')
+
+        // 构建参数并导航到结果页面
+        // 注意：base64数据可能很长，使用Taro.setStorageSync传递
+        const copyPrompt = buildCopyPrompt()
+        const resultParams = {
+          mode: activeTab,
+          copywritingType: formData.copywritingType,
+          productOrServiceName: formData.productOrServiceName,
+          coreSellingPoints: formData.coreSellingPoints,
+          targetAudience: formData.targetAudience,
+          usageScenario: formData.usageScenario,
+          toneStyle: formData.toneStyle,
+          keywords: formData.keywords,
+          wordLimit: formData.wordLimit,
+          structurePreference: formData.structurePreference,
+          forbiddenWords: formData.forbiddenWords,
+          referenceLinks: formData.referenceLinks,
+          prompt: activeTab === 'shop' ? copyPrompt : formData.prompt,
+          // 通用参数
+          generationCount: formData.generationCount,
+          videoLength: formData.videoLength,
+          resolution: formData.resolution,
+          videoFormat: formData.videoFormat,
+          subtitleOption: formData.subtitleOption,
+        }
+
+        // 将图片本地路径存储到本地
+        Taro.setStorageSync('video_gen_image', imagePath)
+        Taro.setStorageSync('video_gen_params', JSON.stringify(resultParams))
+
+        console.log('[CreatePage] Navigating to result page')
+
+        // 导航到结果页面
+        Taro.navigateTo({
+          url: '/pages/result/index?from=create',
+        })
       }
-      
-      // 将图片本地路径存储到本地
-      Taro.setStorageSync('video_gen_image', imagePath)
-      Taro.setStorageSync('video_gen_params', JSON.stringify(resultParams))
-      
-      console.log('[CreatePage] Navigating to result page')
-      
-      // 导航到结果页面
-      Taro.navigateTo({
-        url: '/pages/result/index?from=create',
-      })
     } catch (error) {
       console.error('[CreatePage] Generate error:', error)
       Taro.showToast({ title: '生成失败，请重试', icon: 'none' })
@@ -272,7 +379,7 @@ const CreatePage: FC = () => {
   ]
 
   return (
-    <View className="min-h-screen bg-black">
+    <View className="min-h-screen bg-[color:var(--background)] overflow-hidden">
       {/* 顶部导航 */}
       <View className="flex flex-row items-center px-4 py-3 border-b border-gray-800">
         <View className="flex flex-row items-center" onClick={handleBack}>
@@ -289,10 +396,10 @@ const CreatePage: FC = () => {
             className="rounded-full px-4 py-2"
             style={{
               background: activeTab === tab.key
-                ? 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)'
+                ? 'var(--gradient-primary)'
                 : '#1f2937',
               borderWidth: activeTab === tab.key ? 0 : 1,
-              borderColor: '#a855f7',
+              borderColor: 'var(--tech-2)',
             }}
             onClick={() => setActiveTab(tab.key)}
           >
@@ -307,7 +414,7 @@ const CreatePage: FC = () => {
           <View className="flex flex-row items-center justify-between mb-2">
             <Text className="text-gray-400 text-xs">参考图片/图片中不得有任何人物</Text>
           </View>
-          
+
           <View className="bg-gray-900 rounded-xl p-6 flex flex-col items-center justify-center">
             {formData.image ? (
               <View className="w-full aspect-video relative rounded-lg overflow-hidden">
@@ -322,7 +429,7 @@ const CreatePage: FC = () => {
                     style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}
                   >
                     <View className="flex flex-col items-center">
-                      <Loader size={32} color="#a855f7" className="animate-spin" />
+                      <Loader size={32} color="#0abff3" className="animate-spin" />
                       <Text className="text-white text-sm mt-2">处理中...</Text>
                     </View>
                   </View>
@@ -356,14 +463,21 @@ const CreatePage: FC = () => {
                 <View className="w-full flex flex-row flex-wrap items-center justify-center gap-4 mt-3">
                   <View
                     className="flex flex-row items-center gap-2 bg-gray-800 rounded-lg px-4 py-2"
-                    onClick={handleChooseImage}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleChooseImage();
+                    }}
                   >
                     <Image size={14} color="#ffffff" />
                     <Text className="text-white text-xs">素材库</Text>
                   </View>
+
                   <View
                     className="flex flex-row items-center gap-2 bg-gray-800 rounded-lg px-4 py-2"
-                    onClick={handleChooseImage}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleChooseImage();
+                    }}
                   >
                     <Camera size={14} color="#ffffff" />
                     <Text className="text-white text-xs">直接拍</Text>
@@ -385,7 +499,7 @@ const CreatePage: FC = () => {
               className="rounded-full px-4 py-2"
               style={{
                 background: mode === 'simple'
-                  ? 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)'
+                  ? 'var(--gradient-primary)'
                   : '#1f2937',
               }}
               onClick={() => setMode('simple')}
@@ -396,7 +510,7 @@ const CreatePage: FC = () => {
               className="rounded-full px-4 py-2"
               style={{
                 background: mode === 'creative'
-                  ? 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)'
+                  ? 'var(--gradient-primary)'
                   : '#1f2937',
               }}
               onClick={() => setMode('creative')}
@@ -689,11 +803,11 @@ const CreatePage: FC = () => {
                     className="flex flex-row items-center gap-1 bg-gray-700 rounded-lg px-3 py-1"
                     onClick={handleOptimizePrompt}
                   >
-                    <Sparkles size={12} color="#ec4899" />
-                    <Text className="text-pink-400 text-xs">AI润色</Text>
+                    <Sparkles size={12} color="#08e7de" />
+                    <Text className="text-[color:var(--secondary)] text-xs">AI润色</Text>
                   </View>
                   <View
-                    className="bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg px-3 py-1"
+                    className="fx-gradient-primary fx-glow-primary rounded-lg px-3 py-1"
                     onClick={handleOptimizePrompt}
                   >
                     <Text className="text-white text-xs">优化提示词</Text>
@@ -714,7 +828,7 @@ const CreatePage: FC = () => {
                 className="rounded-lg px-4 py-2"
                 style={{
                   background: formData.generationCount === count
-                    ? 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)'
+                    ? 'var(--gradient-primary)'
                     : '#1f2937',
                 }}
                 onClick={() =>
@@ -730,10 +844,10 @@ const CreatePage: FC = () => {
             <>
               <Text className="text-white text-sm font-medium mb-2">选择渠道</Text>
               <View className="flex flex-row gap-2 mb-4">
-                <View 
+                <View
                   className="rounded-lg px-4 py-2"
                   style={{
-                    background: 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)',
+                    background: 'var(--gradient-primary)',
                   }}
                 >
                   <Text className="text-white text-sm">VED3.1</Text>
@@ -753,7 +867,7 @@ const CreatePage: FC = () => {
                     className="rounded-lg px-4 py-2"
                     style={{
                       background: formData.videoLength === item.value
-                        ? 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)'
+                        ? 'var(--gradient-primary)'
                         : '#1f2937',
                     }}
                     onClick={() =>
@@ -773,7 +887,7 @@ const CreatePage: FC = () => {
                     className="rounded-lg px-4 py-2"
                     style={{
                       background: formData.resolution === res
-                        ? 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)'
+                        ? 'var(--gradient-primary)'
                         : '#1f2937',
                     }}
                     onClick={() => setFormData({ ...formData, resolution: res })}
@@ -789,7 +903,7 @@ const CreatePage: FC = () => {
                   className="rounded-lg px-4 py-2"
                   style={{
                     background: formData.videoFormat === 'vertical'
-                      ? 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)'
+                      ? 'var(--gradient-primary)'
                       : '#1f2937',
                   }}
                   onClick={() =>
@@ -802,7 +916,7 @@ const CreatePage: FC = () => {
                   className="rounded-lg px-4 py-2"
                   style={{
                     background: formData.videoFormat === 'horizontal'
-                      ? 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)'
+                      ? 'var(--gradient-primary)'
                       : '#1f2937',
                   }}
                   onClick={() =>
@@ -819,7 +933,7 @@ const CreatePage: FC = () => {
                   className="rounded-lg px-4 py-2"
                   style={{
                     background: formData.subtitleOption === 'hide'
-                      ? 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)'
+                      ? 'var(--gradient-primary)'
                       : '#1f2937',
                   }}
                   onClick={() => setFormData({ ...formData, subtitleOption: 'hide' })}
@@ -830,7 +944,7 @@ const CreatePage: FC = () => {
                   className="rounded-lg px-4 py-2"
                   style={{
                     background: formData.subtitleOption === 'show'
-                      ? 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)'
+                      ? 'var(--gradient-primary)'
                       : '#1f2937',
                   }}
                   onClick={() => setFormData({ ...formData, subtitleOption: 'show' })}
@@ -855,8 +969,8 @@ const CreatePage: FC = () => {
           left: 0,
           right: 0,
           padding: '16px',
-          backgroundColor: '#000000',
-          borderTop: '1px solid #374151',
+          backgroundColor: 'var(--background)',
+          borderTop: '1px solid var(--border)',
         }}
       >
         <View
@@ -864,27 +978,33 @@ const CreatePage: FC = () => {
           style={{
             background:
               isGenerating ||
-              (activeTab === 'product' &&
-                (isConverting || !formData.image || !formData.imageBase64))
+                (activeTab === 'product' &&
+                  (isConverting || !formData.image || !formData.imageBase64))
                 ? '#4a5568'
-                : 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)',
+                : 'var(--gradient-primary)',
+            boxShadow:
+              isGenerating ||
+                (activeTab === 'product' &&
+                  (isConverting || !formData.image || !formData.imageBase64))
+                ? undefined
+                : '0 0 18px rgba(10, 191, 243, 0.35)',
           }}
           onClick={
             isGenerating ||
-            (activeTab === 'product' &&
-              (isConverting || !formData.image || !formData.imageBase64))
+              (activeTab === 'product' &&
+                (isConverting || !formData.image || !formData.imageBase64))
               ? undefined
               : handleGenerate
           }
         >
           {isGenerating ? (
             <>
-              <Loader size={18} color="#a855f7" className="animate-spin" />
+              <Loader size={18} color="#0abff3" className="animate-spin" />
               <Text className="text-gray-300 font-medium text-base">生成中...</Text>
             </>
           ) : activeTab === 'product' && isConverting ? (
             <>
-              <Loader size={18} color="#a855f7" className="animate-spin" />
+              <Loader size={18} color="#0abff3" className="animate-spin" />
               <Text className="text-gray-300 font-medium text-base">处理图片...</Text>
             </>
           ) : activeTab === 'product' && (!formData.image || !formData.imageBase64) ? (

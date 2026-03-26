@@ -143,8 +143,9 @@ const ResultPage: FC = () => {
 
     const mock = (router.params as any)?.mock
     if (mock === '1') {
-      ;(async () => {
-        const imagePath = await ensureLocalImagePath()
+      ; (async () => {
+        // 不再尝试加载本地图片，直接设置为空字符串
+        const imagePath = ''
         const raw = {
           mode: 'shop',
           copywritingType: '小红书笔记',
@@ -172,16 +173,16 @@ const ResultPage: FC = () => {
     // 从本地存储读取参数
     const imagePath = Taro.getStorageSync('video_gen_image')
     const paramsStr = Taro.getStorageSync('video_gen_params')
-    
+
     console.log('[ResultPage] Image path:', imagePath)
     console.log('[ResultPage] Params string:', paramsStr)
-    
+
     if (!imagePath || !paramsStr) {
       setErrorMessage('缺少生成参数，请重新选择图片')
       setIsLoading(false)
       return
     }
-    
+
     const params = JSON.parse(paramsStr)
     console.log('[ResultPage] Parsed params:', params)
 
@@ -239,17 +240,55 @@ const ResultPage: FC = () => {
       video_resolution: params.resolution || '720P',
       video_subtitle: params.subtitleOption !== 'hide',
     }
-    
+
     setGenerationParams(parsedParams)
-    
+
     // 清除本地存储（避免重复使用）
     Taro.removeStorageSync('video_gen_image')
     Taro.removeStorageSync('video_gen_params')
 
     if (params.mode === 'shop') {
       setIsCopyMode(true)
-      setCopyImagePath(imagePath)
-      setCopyVariants(buildCopyVariantsFromRaw(params))
+
+      // 检查图片路径是否有效
+      if (imagePath && !imagePath.startsWith('http') && !imagePath.includes('://')) {
+        // 尝试获取有效的本地图片路径
+        const ensureLocalImagePath = async (): Promise<string> => {
+          try {
+            const res = await Taro.getImageInfo({ src: imagePath })
+            return (res as any).path || (res as any).tempFilePath || ''
+          } catch {
+            // 如果获取失败，返回空字符串
+            return ''
+          }
+        }
+
+        // 异步获取图片路径
+        ensureLocalImagePath().then((validPath) => {
+          setCopyImagePath(validPath)
+        })
+      } else {
+        // 图片路径已经是有效的 URL 或本地路径
+        setCopyImagePath(imagePath)
+      }
+
+      // 检查是否有后端返回的文案内容
+      if (params.generatedContent) {
+        // 使用后端返回的文案内容
+        const copyVariantsFromAPI = [
+          {
+            label: '推荐',
+            title: params.productOrServiceName || '推广文案',
+            content: params.generatedContent,
+            fullText: `${params.productOrServiceName || '推广文案'}\n\n${params.generatedContent}`
+          }
+        ]
+        setCopyVariants(copyVariantsFromAPI)
+      } else {
+        // 使用默认模板生成文案
+        setCopyVariants(buildCopyVariantsFromRaw(params))
+      }
+
       setActiveCopyIndex(0)
       setIsLoading(false)
       return
@@ -281,12 +320,12 @@ const ResultPage: FC = () => {
       // 进度回调
       const handleProgress = (progress: WorkflowProgress) => {
         console.log('[ResultPage] Progress:', progress)
-        
+
         // 更新节点信息
         if (progress.nodeTitle) {
           setCurrentNode(progress.nodeTitle)
         }
-        
+
         // 更新进度文本
         if (progress.event === 'Message') {
           if (progress.nodeTitle === 'End' || progress.isFinish) {
@@ -330,13 +369,13 @@ const ResultPage: FC = () => {
           confirmed: false,
           regenerating: false,
         }]
-        
+
         setVideoSegments(segments)
         setLoadingProgress(100)
         setLoadingText('生成完成！')
-        
+
         console.log('[ResultPage] ✓ Video generated successfully:', result.videoUrl)
-        
+
         setTimeout(() => {
           setIsLoading(false)
         }, 500)
@@ -365,9 +404,9 @@ const ResultPage: FC = () => {
   // 重新生成视频
   const handleRegenerate = async () => {
     if (!generationParams || isRegenerating) return
-    
+
     setIsRegenerating(true)
-    
+
     try {
       const result = await runCozeWorkflow({
         images: generationParams.images,
@@ -393,7 +432,7 @@ const ResultPage: FC = () => {
           confirmed: false,
           regenerating: false,
         }])
-        
+
         Taro.showToast({ title: '重新生成成功', icon: 'success' })
       } else {
         throw new Error(result.error || '重新生成失败')
@@ -416,23 +455,23 @@ const ResultPage: FC = () => {
 
     try {
       Taro.showLoading({ title: '保存中...' })
-      
+
       // 下载视频
       const downloadRes = await Network.downloadFile({
         url: videoUrl,
       })
-      
+
       // 保存到相册
       await Taro.saveVideoToPhotosAlbum({
         filePath: downloadRes.tempFilePath,
       })
-      
+
       Taro.hideLoading()
       Taro.showToast({ title: '已保存到相册', icon: 'success' })
     } catch (err: any) {
       Taro.hideLoading()
       console.error('[ResultPage] Save video error:', err)
-      
+
       if (err.errMsg?.includes('auth deny')) {
         Taro.showModal({
           title: '提示',
@@ -493,12 +532,19 @@ const ResultPage: FC = () => {
             </View>
 
             <View className="bg-gray-900 rounded-2xl overflow-hidden mb-4">
-              <TaroImage
-                src={copyImagePath}
-                mode="aspectFill"
-                className="w-full"
-                style={{ width: '100%', height: '240px' }}
-              />
+              {copyImagePath ? (
+                <TaroImage
+                  src={copyImagePath}
+                  mode="aspectFill"
+                  className="w-full"
+                  style={{ width: '100%', height: '240px' }}
+                  onError={() => setCopyImagePath('')}
+                />
+              ) : (
+                <View className="w-full h-48 bg-gray-800 flex items-center justify-center">
+                  <Text className="text-gray-400 text-sm">暂无图片</Text>
+                </View>
+              )}
             </View>
 
             <View className="bg-gray-900 rounded-xl p-4 mb-4">
@@ -606,7 +652,7 @@ const ResultPage: FC = () => {
       {/* 加载状态 */}
       {isLoading && (
         <View className="flex flex-col items-center justify-center" style={{ height: 'calc(100vh - 60px)' }}>
-          <Loader size={64} color="#a855f7" className="animate-spin" />
+          <Loader size={64} color="#0abff3" className="animate-spin" />
           <Text className="text-white text-base mt-4">
             {isCopyMode ? '正在生成文案...' : '正在生成视频...'}
           </Text>
@@ -622,7 +668,7 @@ const ResultPage: FC = () => {
               <Video
                 src={currentVideo.videoUrl}
                 className="w-full"
-                style={{ 
+                style={{
                   width: '100%',
                   height: currentVideo.videoUrl.includes('16:9') ? '240px' : '400px'
                 }}

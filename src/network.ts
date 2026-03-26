@@ -36,4 +36,47 @@ export namespace Network {
             url: createUrl(option.url),
         })
     }
+
+    // 文案生成相关 API
+    export const copywriting = {
+        // 生成文案
+        generate: (data: {
+            fileIds?: string[]
+            productServiceName: string
+            coreSellingPoints?: string
+            targetAudience?: string
+            usageScenario?: string
+            copyType?: string
+            toneStyle?: string
+            wordCountLimit?: string
+            structurePreference?: string
+            keywords?: string
+            forbiddenWords?: string
+            referenceLink?: string
+        }) => {
+            return request({
+                url: '/api/copywriting/generate',
+                method: 'POST',
+                data,
+                header: {
+                    'Content-Type': 'application/json',
+                },
+            })
+        },
+    }
+
+    // 文件上传相关 API
+    export const upload = {
+        // 上传文件到 Coze
+        coze: (filePath: string, name?: string) => {
+            return uploadFile({
+                url: '/api/upload/coze',
+                filePath,
+                name: name || 'file',
+                header: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            })
+        },
+    }
 }

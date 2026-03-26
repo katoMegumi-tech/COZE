@@ -1,7 +1,7 @@
 import { View, Text, Input, ScrollView, Image as TaroImage, Textarea } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import type { FC } from 'react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   Upload,
   Camera,
@@ -13,6 +13,7 @@ type CreationTab = 'shop' | 'product'
 
 const ShopCreatePage: FC = () => {
   const activeTab: CreationTab = 'shop'
+  const chooseImageLockRef = useRef(false)
   const [formData, setFormData] = useState({
     image: '',
     copywritingType: '',
@@ -35,9 +36,9 @@ const ShopCreatePage: FC = () => {
 
   const optionStyle = (selected: boolean) =>
     ({
-      background: selected ? 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)' : '#1f2937',
+      background: selected ? 'var(--gradient-primary)' : '#1f2937',
       borderWidth: selected ? 0 : 1,
-      borderColor: '#a855f7',
+      borderColor: 'var(--tech-2)',
     }) as const
 
   const copywritingTypeOptions = [
@@ -75,6 +76,8 @@ const handleTabChange = (tab: CreationTab) => {
   }
 
   const handleImageSelect = async (sourceType: 'album' | 'camera') => {
+    if (chooseImageLockRef.current) return
+    chooseImageLockRef.current = true
     try {
       const result = await Taro.chooseImage({
         count: 1,
@@ -86,6 +89,8 @@ const handleTabChange = (tab: CreationTab) => {
       setFormData({ ...formData, image: tempFilePath })
     } catch (error) {
       console.error('选择图片失败', error)
+    } finally {
+      chooseImageLockRef.current = false
     }
   }
 
@@ -170,7 +175,7 @@ const handleTabChange = (tab: CreationTab) => {
   ]
 
   return (
-    <View className="min-h-screen bg-black">
+    <View className="min-h-screen bg-[color:var(--background)] overflow-hidden">
       {/* 顶部导航 */}
       <View className="flex flex-row items-center px-4 py-3 border-b border-gray-800">
         <View className="flex flex-row items-center" onClick={handleBack}>
@@ -187,10 +192,10 @@ const handleTabChange = (tab: CreationTab) => {
             className="rounded-full px-4 py-2"
             style={{
               background: activeTab === tab.key
-                ? 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)'
+                ? 'var(--gradient-primary)'
                 : '#1f2937',
               borderWidth: activeTab === tab.key ? 0 : 1,
-              borderColor: '#a855f7',
+              borderColor: 'var(--tech-2)',
             }}
             onClick={() => handleTabChange(tab.key)}
           >
@@ -236,14 +241,20 @@ const handleTabChange = (tab: CreationTab) => {
                 <View className="w-full flex flex-row flex-wrap items-center justify-center gap-4 mt-3">
                   <View
                     className="flex flex-row items-center gap-2 bg-gray-800 rounded-lg px-4 py-2"
-                    onClick={handleChooseFromAlbum}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleChooseFromAlbum()
+                    }}
                   >
                     <Image size={14} color="#ffffff" />
                     <Text className="text-white text-xs">素材库</Text>
                   </View>
                   <View
                     className="flex flex-row items-center gap-2 bg-gray-800 rounded-lg px-4 py-2"
-                    onClick={handleTakePhoto}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleTakePhoto()
+                    }}
                   >
                     <Camera size={14} color="#ffffff" />
                     <Text className="text-white text-xs">直接拍</Text>
@@ -512,14 +523,15 @@ const handleTabChange = (tab: CreationTab) => {
           left: 0,
           right: 0,
           padding: '16px',
-          backgroundColor: '#000000',
-          borderTop: '1px solid #374151',
+          backgroundColor: 'var(--background)',
+          borderTop: '1px solid var(--border)',
         }}
       >
         <View
           className="rounded-xl py-4 flex flex-row items-center justify-center gap-2"
           style={{
-            background: 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)',
+            background: 'var(--gradient-primary)',
+            boxShadow: '0 0 18px rgba(10, 191, 243, 0.35)',
           }}
           onClick={handleGenerate}
         >
