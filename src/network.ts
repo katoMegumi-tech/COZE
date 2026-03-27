@@ -16,10 +16,13 @@ export namespace Network {
         return `${PROJECT_DOMAIN}${url}`
     }
 
+    const DEFAULT_TIMEOUT = 300000
+
     export const request: typeof Taro.request = option => {
         return Taro.request({
             ...option,
             url: createUrl(option.url),
+            timeout: option.timeout || DEFAULT_TIMEOUT,
         })
     }
 
@@ -27,6 +30,7 @@ export namespace Network {
         return Taro.uploadFile({
             ...option,
             url: createUrl(option.url),
+            timeout: option.timeout || DEFAULT_TIMEOUT,
         })
     }
 
@@ -34,6 +38,7 @@ export namespace Network {
         return Taro.downloadFile({
             ...option,
             url: createUrl(option.url),
+            timeout: option.timeout || DEFAULT_TIMEOUT,
         })
     }
 

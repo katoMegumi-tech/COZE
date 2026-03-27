@@ -274,13 +274,19 @@ const ResultPage: FC = () => {
 
       // 检查是否有后端返回的文案内容
       if (params.generatedContent) {
+        // 清理文案中的多余#号
+        const cleanContent = params.generatedContent
+          .replace(/^###\s+/gm, '') // 移除行首的###
+          .replace(/^##\s+/gm, '')  // 移除行首的##
+          .replace(/^#\s+/gm, '')   // 移除行首的#
+
         // 使用后端返回的文案内容
         const copyVariantsFromAPI = [
           {
             label: '推荐',
             title: params.productOrServiceName || '推广文案',
-            content: params.generatedContent,
-            fullText: `${params.productOrServiceName || '推广文案'}\n\n${params.generatedContent}`
+            content: cleanContent,
+            fullText: `${params.productOrServiceName || '推广文案'}\n\n${cleanContent}`
           }
         ]
         setCopyVariants(copyVariantsFromAPI)

@@ -8,6 +8,7 @@ import {
   Image,
   ArrowLeft,
 } from 'lucide-react-taro'
+import { Network } from '@/network'
 
 type CreationTab = 'shop' | 'product'
 
@@ -28,6 +29,7 @@ const ShopCreatePage: FC = () => {
     forbiddenWords: '',
     referenceLinks: '',
   })
+  const [isGenerating, setIsGenerating] = useState(false)
 
   const inputStyle = {
     width: '100%',
@@ -95,10 +97,10 @@ const ShopCreatePage: FC = () => {
       chooseImageLockRef.current = false
     }
   }
-  
+
   useEffect(() => {
-  console.log('image 状态变化：', formData.image);
-}, [formData.image]);
+    console.log('image 状态变化：', formData.image);
+  }, [formData.image]);
 
   // 从素材库选择图片
   const handleChooseFromAlbum = () => handleImageSelect('album')
@@ -134,45 +136,104 @@ const ShopCreatePage: FC = () => {
     return lines.join('\n')
   }
 
-  // 生成视频
   const handleGenerate = async () => {
-    let imagePath = formData.image
-    if (!imagePath) {
-      try {
-        imagePath = await getDefaultImagePath()
-      } catch {
-        imagePath = ''
-      }
-    }
-
-    if (!imagePath) {
-      Taro.showToast({ title: '默认参考图不可用，请上传参考图片', icon: 'none' })
+    if (!formData.productOrServiceName) {
+      Taro.showToast({ title: '请输入产品名称', icon: 'none' })
       return
     }
 
-    // 存储参数到本地
-    const copyPrompt = buildCopyPrompt()
-    const params = {
-      mode: activeTab,
-      copywritingType: formData.copywritingType,
-      productOrServiceName: formData.productOrServiceName,
-      coreSellingPoints: formData.coreSellingPoints,
-      targetAudience: formData.targetAudience,
-      usageScenario: formData.usageScenario,
-      toneStyle: formData.toneStyle,
-      keywords: formData.keywords,
-      wordLimit: formData.wordLimit,
-      structurePreference: formData.structurePreference,
-      forbiddenWords: formData.forbiddenWords,
-      referenceLinks: formData.referenceLinks,
-      prompt: copyPrompt,
+    if (isGenerating) {
+      return
     }
 
-    Taro.setStorageSync('video_gen_image', imagePath)
-    Taro.setStorageSync('video_gen_params', JSON.stringify(params))
+    setIsGenerating(true)
 
-    // 跳转到结果页面
-    Taro.navigateTo({ url: '/pages/result/index?from=shop' })
+    try {
+      let imagePath = formData.image
+      if (!imagePath) {
+        try {
+          imagePath = await getDefaultImagePath()
+        } catch {
+          imagePath = ''
+        }
+      }
+
+      let fileIds: string[] = []
+
+      if (imagePath) {
+        Taro.showLoading({ title: '上传参考图片中...', mask: true })
+        try {
+          const uploadRes = await Network.upload.coze(imagePath)
+          const uploadData = typeof uploadRes.data === 'string' ? JSON.parse(uploadRes.data) : uploadRes.data
+          if (uploadData.code === 200 && uploadData.data && uploadData.data.id) {
+            fileIds = [uploadData.data.id]
+          }
+        } catch (uploadError) {
+          console.error('图片上传失败:', uploadError)
+        }
+      }
+
+      Taro.showLoading({ title: '生成文案中...', mask: true })
+
+      const params = {
+        fileIds: fileIds.length > 0 ? fileIds : undefined,
+        productServiceName: formData.productOrServiceName,
+        coreSellingPoints: formData.coreSellingPoints || undefined,
+        targetAudience: formData.targetAudience || undefined,
+        usageScenario: formData.usageScenario || undefined,
+        copyType: formData.copywritingType || undefined,
+        toneStyle: formData.toneStyle || undefined,
+        wordCountLimit: formData.wordLimit || undefined,
+        structurePreference: formData.structurePreference || undefined,
+        keywords: formData.keywords || undefined,
+        forbiddenWords: formData.forbiddenWords || undefined,
+        referenceLink: formData.referenceLinks || undefined,
+      }
+
+      const response = await Network.copywriting.generate(params)
+
+      Taro.hideLoading()
+      setIsGenerating(false)
+
+      if (response.data && response.data.code === 200) {
+        const result = response.data.data
+        if (result && result.content) {
+          const copyPrompt = buildCopyPrompt()
+          const resultParams = {
+            mode: activeTab,
+            copywritingType: formData.copywritingType,
+            productOrServiceName: formData.productOrServiceName,
+            coreSellingPoints: formData.coreSellingPoints,
+            targetAudience: formData.targetAudience,
+            usageScenario: formData.usageScenario,
+            toneStyle: formData.toneStyle,
+            keywords: formData.keywords,
+            wordLimit: formData.wordLimit,
+            structurePreference: formData.structurePreference,
+            forbiddenWords: formData.forbiddenWords,
+            referenceLinks: formData.referenceLinks,
+            prompt: copyPrompt,
+            generatedContent: result.content,
+            outputLinks: result.outputLinks,
+          }
+
+          Taro.setStorageSync('video_gen_image', imagePath)
+          Taro.setStorageSync('video_gen_params', JSON.stringify(resultParams))
+
+          Taro.navigateTo({ url: '/pages/result/index?from=shop' })
+        } else {
+          Taro.showToast({ title: '生成失败：未返回有效内容', icon: 'none' })
+        }
+      } else {
+        const errorMsg = response.data?.message || '生成失败'
+        Taro.showToast({ title: errorMsg, icon: 'none' })
+      }
+    } catch (error) {
+      Taro.hideLoading()
+      setIsGenerating(false)
+      console.error('生成失败:', error)
+      Taro.showToast({ title: '网络错误，请重试', icon: 'none' })
+    }
   }
 
   const tabs = [
@@ -539,7 +600,7 @@ const ShopCreatePage: FC = () => {
             background: 'var(--gradient-primary)',
             boxShadow: '0 0 18px rgba(10, 191, 243, 0.35)',
           }}
-          onClick={handleGenerate}
+          onClick={isGenerating ? undefined : handleGenerate}
         >
           <Text className="text-white font-medium text-base">生成文案与配图</Text>
         </View>
