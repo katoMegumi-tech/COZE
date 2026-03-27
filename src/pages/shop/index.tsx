@@ -271,7 +271,14 @@ const ShopCreatePage: FC = () => {
         ))}
       </View>
 
-      <ScrollView scrollY className="px-4" style={{ height: 'calc(100vh - 240px)' }}>
+      <ScrollView
+        scrollY
+        style={{
+          height: 'calc(100vh - 240px)',
+          width: '690rpx',
+          padding: '0 32rpx'  // 直接设置内边距
+        }}
+      >
         {/* 图片上传区 */}
         <View className="mb-4">
           <Text className="text-gray-400 text-xs mb-2">参考图片/图片中不得有任何人物</Text>
@@ -602,7 +609,7 @@ const ShopCreatePage: FC = () => {
           }}
           onClick={isGenerating ? undefined : handleGenerate}
         >
-          <Text className="text-white font-medium text-base">生成文案与配图</Text>
+          <Text className="text-white font-medium text-base">生成文案</Text>
         </View>
       </View>
     </View>

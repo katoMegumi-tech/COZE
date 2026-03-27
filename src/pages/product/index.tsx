@@ -202,7 +202,12 @@ const ProductCreatePage: FC = () => {
         ))}
       </View>
 
-      <ScrollView scrollY className="px-4" style={{ height: 'calc(100vh - 240px)' }}>
+      <ScrollView scrollY className="px-4"
+        style={{
+          height: 'calc(100vh - 240px)',
+          width: '690rpx',
+          padding: '0 32rpx'  // 直接设置内边距
+        }}>
         <View className="bg-gray-900 rounded-2xl p-4 mb-4">
           <View className="flex flex-row items-center justify-between mb-2">
             <Text className="text-white text-base font-semibold">商品素材</Text>
@@ -248,29 +253,29 @@ const ProductCreatePage: FC = () => {
                 </View>
                 <Text className="text-gray-300 text-sm mb-2">上传产品图片</Text>
                 <Text className="text-gray-500 text-xs mb-3">建议上传清晰主图/多角度拼图</Text>
-                <View className="w-full flex flex-row flex-wrap items-center justify-center gap-4 mt-1">
+                <View className="w-full flex flex-row items-center justify-center gap-6 mt-1">
                   // 素材库按钮
                   <View
-                    className="flex flex-row items-center gap-2 bg-gray-800 rounded-lg px-4 py-2"
+                    className="flex flex-row items-center gap-2 bg-gray-800 rounded-lg px-6 py-3"
                     onClick={(e) => {
                       e.stopPropagation();          // 阻止冒泡
                       handleChooseFromAlbum();
                     }}
                   >
-                    <Image size={14} color="#ffffff" />
-                    <Text className="text-white text-xs">素材库</Text>
+                    <Image size={16} color="#ffffff" />
+                    <Text className="text-white text-sm">素材库</Text>
                   </View>
 
                   // 直接拍按钮
                   <View
-                    className="flex flex-row items-center gap-2 bg-gray-800 rounded-lg px-4 py-2"
+                    className="flex flex-row items-center gap-2 bg-gray-800 rounded-lg px-6 py-3"
                     onClick={(e) => {
                       e.stopPropagation();          // 阻止冒泡
                       handleTakePhoto();
                     }}
                   >
-                    <Camera size={14} color="#ffffff" />
-                    <Text className="text-white text-xs">直接拍</Text>
+                    <Camera size={16} color="#ffffff" />
+                    <Text className="text-white text-sm">直接拍</Text>
                   </View>
                 </View>
               </>

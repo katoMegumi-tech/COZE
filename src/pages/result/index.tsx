@@ -537,22 +537,6 @@ const ResultPage: FC = () => {
               </Text>
             </View>
 
-            <View className="bg-gray-900 rounded-2xl overflow-hidden mb-4">
-              {copyImagePath ? (
-                <TaroImage
-                  src={copyImagePath}
-                  mode="aspectFill"
-                  className="w-full"
-                  style={{ width: '100%', height: '240px' }}
-                  onError={() => setCopyImagePath('')}
-                />
-              ) : (
-                <View className="w-full h-48 bg-gray-800 flex items-center justify-center">
-                  <Text className="text-gray-400 text-sm">暂无图片</Text>
-                </View>
-              )}
-            </View>
-
             <View className="bg-gray-900 rounded-xl p-4 mb-4">
               <View className="flex flex-row items-center justify-between mb-3">
                 <Text className="text-white text-sm font-medium">文案版本</Text>
@@ -616,20 +600,6 @@ const ResultPage: FC = () => {
                 }}
               >
                 <Text className="text-white text-base">复制当前版本</Text>
-              </View>
-              <View
-                className="flex-1 rounded-xl py-4 flex flex-row items-center justify-center gap-2"
-                style={{ background: 'linear-gradient(90deg, #a855f7 0%, #ec4899 100%)' }}
-                onClick={async () => {
-                  try {
-                    await Taro.saveImageToPhotosAlbum({ filePath: copyImagePath })
-                    Taro.showToast({ title: '已保存图片', icon: 'success' })
-                  } catch {
-                    Taro.showToast({ title: '保存失败', icon: 'none' })
-                  }
-                }}
-              >
-                <Text className="text-white text-base font-medium">保存图片</Text>
               </View>
             </View>
 
