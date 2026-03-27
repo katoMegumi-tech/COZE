@@ -1,7 +1,7 @@
 import { View, Text, Input, ScrollView, Image as TaroImage, Textarea } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import type { FC } from 'react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Upload,
   Camera,
@@ -69,7 +69,7 @@ const ShopCreatePage: FC = () => {
     Taro.navigateBack()
   }
 
-const handleTabChange = (tab: CreationTab) => {
+  const handleTabChange = (tab: CreationTab) => {
     if (tab === 'product') {
       Taro.redirectTo({ url: '/pages/product/index' })
     }
@@ -84,15 +84,21 @@ const handleTabChange = (tab: CreationTab) => {
         sizeType: ['compressed'],
         sourceType: [sourceType],
       })
-      
+
       const tempFilePath = result.tempFilePaths[0]
+      console.log('选择的图片路径:', tempFilePath)
       setFormData({ ...formData, image: tempFilePath })
+
     } catch (error) {
       console.error('选择图片失败', error)
     } finally {
       chooseImageLockRef.current = false
     }
   }
+  
+  useEffect(() => {
+  console.log('image 状态变化：', formData.image);
+}, [formData.image]);
 
   // 从素材库选择图片
   const handleChooseFromAlbum = () => handleImageSelect('album')
@@ -161,10 +167,10 @@ const handleTabChange = (tab: CreationTab) => {
       referenceLinks: formData.referenceLinks,
       prompt: copyPrompt,
     }
-    
+
     Taro.setStorageSync('video_gen_image', imagePath)
     Taro.setStorageSync('video_gen_params', JSON.stringify(params))
-    
+
     // 跳转到结果页面
     Taro.navigateTo({ url: '/pages/result/index?from=shop' })
   }
@@ -180,7 +186,7 @@ const handleTabChange = (tab: CreationTab) => {
       <View className="flex flex-row items-center px-4 py-3 border-b border-gray-800">
         <View className="flex flex-row items-center" onClick={handleBack}>
           <ArrowLeft size={20} color="#ffffff" />
-        <Text className="text-white text-base ml-1">文案创作</Text>
+          <Text className="text-white text-base ml-1">文案创作</Text>
         </View>
       </View>
 
@@ -208,7 +214,7 @@ const handleTabChange = (tab: CreationTab) => {
         {/* 图片上传区 */}
         <View className="mb-4">
           <Text className="text-gray-400 text-xs mb-2">参考图片/图片中不得有任何人物</Text>
-          <View 
+          <View
             className="bg-gray-900 rounded-xl p-6 flex flex-col items-center justify-center"
             onClick={!formData.image ? handleChooseFromAlbum : undefined}
           >

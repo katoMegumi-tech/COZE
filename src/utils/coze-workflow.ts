@@ -9,7 +9,7 @@ import { Network } from '../network'
 // API配置 - 直接调用 Java 后端 (8088) 的 /api 前缀接口
 const API_PREFIX =
   typeof PROJECT_DOMAIN === 'string' &&
-  PROJECT_DOMAIN.replace(/\/+$/, '').endsWith('/api')
+    PROJECT_DOMAIN.replace(/\/+$/, '').endsWith('/api')
     ? ''
     : '/api'
 
@@ -298,7 +298,7 @@ async function pollWorkflowResult(
   onProgress?: (progress: WorkflowProgress) => void,
   options?: RunWorkflowOptions,
 ): Promise<string | null> {
-  const maxWaitMs = options?.maxWaitMs ?? 1000 * 60 * 5
+  const maxWaitMs = options?.maxWaitMs ?? 1000 * 60 * 15
   const intervalMs = options?.intervalMs ?? 3000
   const start = Date.now()
 

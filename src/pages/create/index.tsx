@@ -142,13 +142,13 @@ const CreatePage: FC = () => {
         // 上传图片到 Coze 获取 fileId
         const uploadResponse = await Network.upload.coze(tempFilePath)
         console.log('[CreatePage] Upload response:', uploadResponse)
-        
+
         if (uploadResponse.statusCode === 200 && uploadResponse.data) {
           const uploadData = JSON.parse(uploadResponse.data)
           if (uploadData.code === 200 && uploadData.data) {
             const fileId = uploadData.data.fileId
             console.log('[CreatePage] Upload success, fileId:', fileId)
-            
+
             // 转换为base64（用于传递给Coze工作流）
             const base64 = await imageToBase64(tempFilePath)
             console.log('[CreatePage] Image converted to base64, length:', base64.length)
@@ -247,7 +247,7 @@ const CreatePage: FC = () => {
       if (activeTab === 'shop') {
         // 文案创作模式：调用后端 API 生成文案
         console.log('[CreatePage] Starting copywriting generation...')
-        
+
         // 构建请求参数
         const requestData = {
           fileIds: formData.fileId ? [formData.fileId] : undefined,
@@ -263,20 +263,20 @@ const CreatePage: FC = () => {
           forbiddenWords: formData.forbiddenWords,
           referenceLink: formData.referenceLinks,
         }
-        
+
         console.log('[CreatePage] Copywriting request data:', requestData)
-        
+
         // 调用后端 API
         const response = await Network.copywriting.generate(requestData)
-        
+
         console.log('[CreatePage] Copywriting API response:', response)
-        
+
         if (response.statusCode === 200 && response.data && response.data.code === 200) {
           const copywritingResponse = response.data.data
-          
+
           if (copywritingResponse.status === 'SUCCESS') {
             console.log('[CreatePage] Copywriting generation success:', copywritingResponse)
-            
+
             // 构建参数并导航到结果页面
             const resultParams = {
               mode: activeTab,
@@ -341,7 +341,7 @@ const CreatePage: FC = () => {
           structurePreference: formData.structurePreference,
           forbiddenWords: formData.forbiddenWords,
           referenceLinks: formData.referenceLinks,
-          prompt: activeTab === 'shop' ? copyPrompt : formData.prompt,
+          prompt: activeTab === 'product' ? formData.prompt : copyPrompt,
           // 通用参数
           generationCount: formData.generationCount,
           videoLength: formData.videoLength,
