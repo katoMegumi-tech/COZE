@@ -11,8 +11,8 @@ interface FeatureItem {
 }
 
 const features: FeatureItem[] = [
-  { icon: Store, label: '文案创作', type: 'shop' },
-  { icon: Package, label: '产品创作', type: 'product' },
+  { icon: Store, label: '图文生成', type: 'shop' },
+  { icon: Package, label: '视频生成', type: 'product' },
   { icon: Copy, label: '批量创作', type: 'batch' },
   { icon: Sparkles, label: 'AI脚本', type: 'script' },
 ]
@@ -179,7 +179,7 @@ const IndexPage: FC = () => {
                 style={{ background: 'rgba(255, 255, 255, 0.12)' }}
                 onClick={() => handleFeatureClick('shop')}
               >
-                <Text className="text-white text-sm font-medium">文案创作</Text>
+                <Text className="text-white text-sm font-medium">图文生成</Text>
               </View>
               <View
                 className="flex-1 rounded-xl py-3 flex flex-row items-center justify-center active:opacity-80"
@@ -190,7 +190,7 @@ const IndexPage: FC = () => {
                 onClick={() => handleFeatureClick('product')}
               >
                 <Sparkles size={16} color="#ffffff" />
-                <Text className="text-white text-sm font-medium ml-2">产品创作</Text>
+                <Text className="text-white text-sm font-medium ml-2">视频生成</Text>
               </View>
             </View>
           </View>

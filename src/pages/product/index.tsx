@@ -30,7 +30,6 @@ type CreationStyleKey =
 type CreationStyle = CreationStyleKey | ''
 
 const ProductCreatePage: FC = () => {
-  const activeTab: CreationTab = 'product'
   const chooseImageLockRef = useRef(false)
   const [mode, setMode] = useState<Mode>('simple')
   const [formData, setFormData] = useState({
@@ -53,12 +52,6 @@ const ProductCreatePage: FC = () => {
 
   const handleBack = () => {
     Taro.navigateBack()
-  }
-
-  const handleTabChange = (tab: CreationTab) => {
-    if (tab === 'shop') {
-      Taro.redirectTo({ url: '/pages/shop/index' })
-    }
   }
 
   // 处理图片选择
@@ -149,7 +142,7 @@ const ProductCreatePage: FC = () => {
     }
 
     const params = {
-      mode: activeTab,
+      mode: 'product',
       productName: formData.productName,
       productFeature: formData.productFeature,
       priceRecommendation: formData.priceRecommendation,
@@ -169,37 +162,13 @@ const ProductCreatePage: FC = () => {
     Taro.navigateTo({ url: '/pages/result/index?from=product' })
   }
 
-  const tabs = [
-    { key: 'shop' as const, label: '文案创作' },
-    { key: 'product' as const, label: '产品创作' },
-  ]
-
   return (
     <View className="min-h-screen bg-[color:var(--background)] overflow-hidden">
       <View className="flex flex-row items-center px-4 py-3 border-b border-gray-800">
         <View className="flex flex-row items-center" onClick={handleBack}>
           <ArrowLeft size={20} color="#ffffff" />
-          <Text className="text-white text-base ml-1">产品创作</Text>
+          <Text className="text-white text-base ml-1">视频生成 </Text>
         </View>
-      </View>
-
-      <View className="flex flex-row px-4 py-3 gap-2">
-        {tabs.map((tab) => (
-          <View
-            key={tab.key}
-            className="rounded-full px-4 py-2"
-            style={{
-              background: activeTab === tab.key
-                ? 'var(--gradient-primary)'
-                : '#1f2937',
-              borderWidth: activeTab === tab.key ? 0 : 1,
-              borderColor: 'var(--tech-2)',
-            }}
-            onClick={() => handleTabChange(tab.key)}
-          >
-            <Text className="text-white text-sm">{tab.label}</Text>
-          </View>
-        ))}
       </View>
 
       <ScrollView scrollY className="px-4"
@@ -209,14 +178,10 @@ const ProductCreatePage: FC = () => {
           padding: '0 32rpx'  // 直接设置内边距
         }}>
         <View className="bg-gray-900 rounded-2xl p-4 mb-4">
-          <View className="flex flex-row items-center justify-between mb-2">
-            <Text className="text-white text-base font-semibold">商品素材</Text>
-            <Text className="text-gray-400 text-xs">上传图片后生成更稳定</Text>
-          </View>
 
           <Text className="text-gray-400 text-xs mb-3">参考图片/图片中不得有任何人物</Text>
           <View
-            className="bg-black rounded-xl p-4 flex flex-col items-center justify-center"
+            className="bg-gray-900 rounded-xl p-6 flex flex-col items-center justify-center"
             onClick={!formData.image ? handleChooseFromAlbum : undefined}
           >
             {formData.image ? (
@@ -251,31 +216,30 @@ const ProductCreatePage: FC = () => {
                 <View className="w-12 h-12 rounded-full bg-gray-800 flex items-center justify-center mb-3">
                   <Upload size={24} color="#9CA3AF" />
                 </View>
-                <Text className="text-gray-300 text-sm mb-2">上传产品图片</Text>
-                <Text className="text-gray-500 text-xs mb-3">建议上传清晰主图/多角度拼图</Text>
-                <View className="w-full flex flex-row items-center justify-center gap-6 mt-1">
-                  // 素材库按钮
+                <Text className="text-gray-400 text-sm mb-3">点击上传参考图片（可选）</Text>
+                <View className="w-full flex flex-row items-center justify-center">
+                  <Text className="text-gray-500 text-xs">—— 或者 ——</Text>
+                </View>
+                <View className="w-full flex flex-row flex-wrap items-center justify-center gap-4 mt-3">
                   <View
-                    className="flex flex-row items-center gap-2 bg-gray-800 rounded-lg px-6 py-3"
+                    className="flex flex-row items-center gap-2 bg-gray-800 rounded-lg px-4 py-2"
                     onClick={(e) => {
                       e.stopPropagation();          // 阻止冒泡
                       handleChooseFromAlbum();
                     }}
                   >
-                    <Image size={16} color="#ffffff" />
-                    <Text className="text-white text-sm">素材库</Text>
+                    <Image size={14} color="#ffffff" />
+                    <Text className="text-white text-xs">素材库</Text>
                   </View>
-
-                  // 直接拍按钮
                   <View
-                    className="flex flex-row items-center gap-2 bg-gray-800 rounded-lg px-6 py-3"
+                    className="flex flex-row items-center gap-2 bg-gray-800 rounded-lg px-4 py-2"
                     onClick={(e) => {
                       e.stopPropagation();          // 阻止冒泡
                       handleTakePhoto();
                     }}
                   >
-                    <Camera size={16} color="#ffffff" />
-                    <Text className="text-white text-sm">直接拍</Text>
+                    <Camera size={14} color="#ffffff" />
+                    <Text className="text-white text-xs">直接拍</Text>
                   </View>
                 </View>
               </>

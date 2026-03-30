@@ -13,7 +13,6 @@ import { Network } from '@/network'
 type CreationTab = 'shop' | 'product'
 
 const ShopCreatePage: FC = () => {
-  const activeTab: CreationTab = 'shop'
   const chooseImageLockRef = useRef(false)
   const [formData, setFormData] = useState({
     image: '',
@@ -69,12 +68,6 @@ const ShopCreatePage: FC = () => {
 
   const handleBack = () => {
     Taro.navigateBack()
-  }
-
-  const handleTabChange = (tab: CreationTab) => {
-    if (tab === 'product') {
-      Taro.redirectTo({ url: '/pages/product/index' })
-    }
   }
 
   const handleImageSelect = async (sourceType: 'album' | 'camera') => {
@@ -200,7 +193,7 @@ const ShopCreatePage: FC = () => {
         if (result && result.content) {
           const copyPrompt = buildCopyPrompt()
           const resultParams = {
-            mode: activeTab,
+            mode: 'shop',
             copywritingType: formData.copywritingType,
             productOrServiceName: formData.productOrServiceName,
             coreSellingPoints: formData.coreSellingPoints,
@@ -236,39 +229,14 @@ const ShopCreatePage: FC = () => {
     }
   }
 
-  const tabs = [
-    { key: 'shop' as const, label: '文案创作' },
-    { key: 'product' as const, label: '产品创作' },
-  ]
-
   return (
     <View className="min-h-screen bg-[color:var(--background)] overflow-hidden">
       {/* 顶部导航 */}
       <View className="flex flex-row items-center px-4 py-3 border-b border-gray-800">
         <View className="flex flex-row items-center" onClick={handleBack}>
           <ArrowLeft size={20} color="#ffffff" />
-          <Text className="text-white text-base ml-1">文案创作</Text>
+          <Text className="text-white text-base ml-1">图文生成</Text>
         </View>
-      </View>
-
-      {/* 标签切换栏 */}
-      <View className="flex flex-row px-4 py-3 gap-2">
-        {tabs.map((tab) => (
-          <View
-            key={tab.key}
-            className="rounded-full px-4 py-2"
-            style={{
-              background: activeTab === tab.key
-                ? 'var(--gradient-primary)'
-                : '#1f2937',
-              borderWidth: activeTab === tab.key ? 0 : 1,
-              borderColor: 'var(--tech-2)',
-            }}
-            onClick={() => handleTabChange(tab.key)}
-          >
-            <Text className="text-white text-sm">{tab.label}</Text>
-          </View>
-        ))}
       </View>
 
       <ScrollView
@@ -344,6 +312,7 @@ const ShopCreatePage: FC = () => {
             <Text className="text-white text-sm font-semibold">基础信息</Text>
           </View>
 
+          {/* 文案类型 - 暂时注释
           <View className="mb-2">
             <Text className="text-white text-sm font-medium">文案类型</Text>
           </View>
@@ -370,6 +339,7 @@ const ShopCreatePage: FC = () => {
               }
             />
           </View>
+          */}
 
           <Text className="text-white text-sm font-medium mb-2">产品 / 服务名称</Text>
           <View className="bg-gray-800 rounded-lg px-4 py-3 mb-4 overflow-hidden">
