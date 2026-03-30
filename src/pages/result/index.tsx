@@ -37,6 +37,7 @@ const ResultPage: FC = () => {
   const [generationParams, setGenerationParams] = useState<any>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [, setCurrentNode] = useState<string>('')
+  const [generatedImages, setGeneratedImages] = useState<string[]>([])
 
   useEffect(() => {
     const buildCopyVariantsFromRaw = (raw: any) => {
@@ -279,6 +280,11 @@ const ResultPage: FC = () => {
           .replace(/^###\s+/gm, '') // 移除行首的###
           .replace(/^##\s+/gm, '')  // 移除行首的##
           .replace(/^#\s+/gm, '')   // 移除行首的#
+
+        // 处理生成的图片
+        if (params.outputLinks && Array.isArray(params.outputLinks)) {
+          setGeneratedImages(params.outputLinks)
+        }
 
         // 使用后端返回的文案内容
         const copyVariantsFromAPI = [
@@ -564,6 +570,27 @@ const ResultPage: FC = () => {
                 ))}
               </View>
 
+              {/* 生成的图片展示 */}
+              {generatedImages.length > 0 && (
+                <View className="mb-4">
+                  <View className="mb-2">
+                    <Text className="text-gray-300 text-xs">生成图片</Text>
+                  </View>
+                  <ScrollView scrollX className="flex flex-row gap-3">
+                    {generatedImages.map((imageUrl, index) => (
+                      <View key={index} className="flex-shrink-0">
+                        <TaroImage
+                          src={imageUrl}
+                          mode="aspectFill"
+                          className="w-48 h-48 rounded-lg"
+                          style={{ width: '192px', height: '192px' }}
+                        />
+                      </View>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+
               <View className="bg-gray-800 rounded-lg p-3 mb-3">
                 <View className="mb-1">
                   <Text className="text-gray-300 text-xs">标题</Text>
@@ -601,19 +628,25 @@ const ResultPage: FC = () => {
               >
                 <Text className="text-white text-base">复制当前版本</Text>
               </View>
-            </View>
-
-            <View
-              className="bg-gray-800 rounded-xl py-4 flex flex-row items-center justify-center"
-              onClick={() => {
-                if (!copyVariants.length) return
-                const rotated = [...copyVariants.slice(1), copyVariants[0]]
-                setCopyVariants(rotated)
-                setActiveCopyIndex(0)
-                Taro.showToast({ title: '已切换新版本', icon: 'success' })
-              }}
-            >
-              <Text className="text-purple-400 text-base font-medium">再来 3 版（开发态）</Text>
+              {generatedImages.length > 0 && (
+                <View
+                  className="flex-1 bg-gray-800 rounded-xl py-4 flex flex-row items-center justify-center gap-2"
+                  onClick={async () => {
+                    try {
+                      if (generatedImages.length > 0) {
+                        const imageUrl = generatedImages[0]
+                        // 保存第一张图片
+                        await Taro.saveImageToPhotosAlbum({ filePath: imageUrl })
+                        Taro.showToast({ title: '已保存图片', icon: 'success' })
+                      }
+                    } catch {
+                      Taro.showToast({ title: '保存失败', icon: 'none' })
+                    }
+                  }}
+                >
+                  <Text className="text-white text-base">保存图片</Text>
+                </View>
+              )}
             </View>
 
             <View className="mt-6 mb-4">
