@@ -237,7 +237,7 @@ export default defineConfig<'vite'>(async (merge, _env) => {
         open: false,
         proxy: {
           '/api': {
-            target: 'http://localhost:8088',
+            target: 'http://120.26.210.199/',
             changeOrigin: true,
           },
         },
