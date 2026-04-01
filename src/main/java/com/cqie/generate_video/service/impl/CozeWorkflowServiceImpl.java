@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Flux;
@@ -44,6 +45,7 @@ public class CozeWorkflowServiceImpl implements CozeWorkflowService {
                 .build();
     }
 
+    @Transactional(rollbackFor = Exception.class)
     @Override
     public CozeWorkflowResponse runWorkflow(CozeWorkflowRequest request) {
 

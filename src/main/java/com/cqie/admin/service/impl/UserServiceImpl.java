@@ -15,6 +15,7 @@ import com.cqie.admin.dto.response.UserUpdateResponse;
 import com.cqie.admin.entity.UserDO;
 import com.cqie.admin.entity.UserRoleDO;
 import com.cqie.admin.mapper.UserMapper;
+import com.cqie.admin.service.UserPointsLogService;
 import com.cqie.admin.service.UserRoleService;
 import com.cqie.admin.service.UserService;
 import com.cqie.admin.util.BeanUtil;
@@ -32,12 +33,14 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Random;
 
 import static com.cqie.admin.common.constant.RedisCacheConstant.LOCK_USER_REGISTER;
 import static com.cqie.admin.common.constant.UserRegisterConstant.DEFAULT_POINTS;
 import static com.cqie.admin.common.constant.UserRegisterConstant.DEFAULT_ROLE;
+import static com.cqie.generate_video.constant.PointsConsumeEnum.NEW_USER_REGISTER;
 
 @Service
 @Slf4j
@@ -50,6 +53,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, UserDO> implements 
     private final AuthenticationManager authenticationManager;
     private final RedisUtil redisUtil;
     private final UserRoleService userRoleService;
+    private final UserPointsLogService userPointsLogService;
 
     /**
      * 获取当前登录用户名
@@ -123,6 +127,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, UserDO> implements 
      * 用户注册
      * @param requestParam 注册参数
      */
+
+    @Transactional(rollbackFor = Exception.class)
     @Override
     public void register(UserRegisterRequest requestParam) {
 
@@ -151,6 +157,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, UserDO> implements 
             userDO.setPoints(DEFAULT_POINTS);
 
             //写入积分变动表
+            userPointsLogService.updateUserPoints(
+                    requestParam.getUsername(),
+                    NEW_USER_REGISTER.getPoints(),
+                    NEW_USER_REGISTER.getDesc()
+            );
 
 
             int insert = baseMapper.insert(userDO);

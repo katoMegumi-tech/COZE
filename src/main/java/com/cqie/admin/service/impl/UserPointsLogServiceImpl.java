@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.cqie.admin.common.exception.ClientException;
 import com.cqie.admin.entity.UserDO;
 import com.cqie.admin.entity.UserPointsLogDO;
+import com.cqie.admin.mapper.UserMapper;
 import com.cqie.admin.mapper.UserPointsLogMapper;
 import com.cqie.admin.service.UserPointsLogService;
 import com.cqie.admin.service.UserService;
@@ -16,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserPointsLogServiceImpl extends ServiceImpl<UserPointsLogMapper, UserPointsLogDO> implements UserPointsLogService {
 
     @Autowired
-    private UserService userService;
+    private UserMapper UserMapper;
 
     /**
      * 更新用户积分
@@ -39,7 +40,7 @@ public class UserPointsLogServiceImpl extends ServiceImpl<UserPointsLogMapper, U
         }
         
         // 查询用户
-        UserDO user = userService.getOne(
+        UserDO user = UserMapper.selectOne(
             new LambdaQueryWrapper<UserDO>()
                 .eq(UserDO::getUsername, username)
         );
@@ -58,7 +59,7 @@ public class UserPointsLogServiceImpl extends ServiceImpl<UserPointsLogMapper, U
         
         // 更新用户积分
         user.setPoints(newPoints);
-        boolean updateSuccess = userService.updateById(user);
+        boolean updateSuccess = UserMapper.updateById(user) > 0;
         
         if (!updateSuccess) {
             throw new ClientException("500" ,"更新用户积分失败");
