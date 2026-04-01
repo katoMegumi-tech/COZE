@@ -1,5 +1,6 @@
 package com.cqie.generate_video.service.impl;
 
+import com.cqie.admin.service.UserPointsLogService;
 import com.cqie.generate_video.config.CozeConfig;
 import com.cqie.generate_video.dto.request.CozeWorkflowRequest;
 import com.cqie.generate_video.dto.response.CozeWorkflowResponse;
@@ -8,6 +9,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
@@ -16,6 +19,8 @@ import reactor.core.publisher.Flux;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
+
+import static com.cqie.generate_video.constant.PointsConsumeEnum.VIDEO_GENERATION;
 
 /**
  * Coze 工作流服务实现
@@ -29,6 +34,9 @@ public class CozeWorkflowServiceImpl implements CozeWorkflowService {
     private final WebClient webClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    @Autowired
+        private UserPointsLogService userPointsLogService;
+
     public CozeWorkflowServiceImpl(CozeConfig cozeConfig) {
         this.cozeConfig = cozeConfig;
         this.webClient = WebClient.builder()
@@ -38,6 +46,14 @@ public class CozeWorkflowServiceImpl implements CozeWorkflowService {
 
     @Override
     public CozeWorkflowResponse runWorkflow(CozeWorkflowRequest request) {
+
+        String username = SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString();
+        userPointsLogService.updateUserPoints(
+                username,
+                VIDEO_GENERATION.getPoints(),
+                VIDEO_GENERATION.getDesc());
+
+
         // 使用配置文件中的 workflow_id
         String workflowId = cozeConfig.getWorkflowId();
         

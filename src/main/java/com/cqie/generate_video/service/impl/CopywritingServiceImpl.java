@@ -1,5 +1,6 @@
 package com.cqie.generate_video.service.impl;
 
+import com.cqie.admin.service.UserPointsLogService;
 import com.cqie.generate_video.config.CozeConfig;
 import com.cqie.generate_video.dto.request.CopywritingRequest;
 import com.cqie.generate_video.dto.response.CopywritingResponse;
@@ -9,6 +10,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
@@ -19,6 +22,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
+
+import static com.cqie.generate_video.constant.PointsConsumeEnum.VIDEO_GENERATION;
 
 /**
  * 文案生成服务实现
@@ -32,7 +37,11 @@ public class CopywritingServiceImpl implements CopywritingService {
     private final WebClient webClient;
     private final TaskManager taskManager;
     private final ObjectMapper objectMapper = new ObjectMapper();
-    
+
+    @Autowired
+    private UserPointsLogService userPointsLogService;
+
+
     public CopywritingServiceImpl(CozeConfig cozeConfig, TaskManager taskManager) {
         this.cozeConfig = cozeConfig;
         this.taskManager = taskManager;
@@ -43,6 +52,14 @@ public class CopywritingServiceImpl implements CopywritingService {
     
     @Override
     public CopywritingResponse generateCopywriting(CopywritingRequest request) {
+
+        String username = SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString();
+        userPointsLogService.updateUserPoints(
+                username,
+                VIDEO_GENERATION.getPoints(),
+                VIDEO_GENERATION.getDesc());
+
+
         log.info("开始生成文案，产品名称: {}", request.getProductServiceName());
         
         Map<String, Object> parameters = buildParameters(request);
