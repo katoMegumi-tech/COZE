@@ -11,6 +11,7 @@ import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -41,6 +42,7 @@ public class CozeWorkflowController {
      * @return 任务ID
      */
     @Operation(summary = "异步生成视频", description = "提交视频生成任务，立即返回任务ID")
+    @PreAuthorize("hasAuthority('coze:workflow:async')")
     @PostMapping("/workflow/async")
     public Result<Map<String, String>> runWorkflowAsync(@Valid @RequestBody CozeWorkflowRequest request) {
         
@@ -79,6 +81,7 @@ public class CozeWorkflowController {
      * @return 任务状态
      */
     @Operation(summary = "查询任务状态", description = "根据任务ID查询视频生成进度和结果")
+    @PreAuthorize("hasAuthority('coze:workflow:status')")
     @GetMapping("/workflow/status/{taskId}")
     public Result<TaskStatusResponse> getTaskStatus(@PathVariable String taskId) {
         TaskStatusResponse task = taskManager.getTask(taskId);

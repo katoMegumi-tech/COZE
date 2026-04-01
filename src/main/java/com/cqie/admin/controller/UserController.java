@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/api/admin/user")
@@ -37,6 +38,7 @@ public class UserController {
      * @return 用户信息
      */
     @Operation(summary = "获取当前用户信息", description = "获取当前登录用户的详细信息")
+    @PreAuthorize("hasAuthority('user:getInfo')")
     @PostMapping("/getUserByUsername")
     public Result<Object> getUserByUsername() {
         return Result.success(userService.getUserByUsername());
@@ -59,6 +61,7 @@ public class UserController {
      * @return 登出结果
      */
     @Operation(summary = "用户登出", description = "退出登录")
+    @PreAuthorize("hasAuthority('user:logout')")
     @PostMapping("/logout")
     public Result<Void> logout() {
         userService.logout();
@@ -82,6 +85,7 @@ public class UserController {
      * @return 修改结果
      */
     @Operation(summary = "修改用户信息", description = "更新当前登录用户的信息")
+    @PreAuthorize("hasAuthority('user:update')")
     @PostMapping("/updateUser")
     public Result<UserUpdateResponse> updateUser(@RequestBody UserUpdateRequest requestParam) {
         return Result.success(userService.updateUser(requestParam));

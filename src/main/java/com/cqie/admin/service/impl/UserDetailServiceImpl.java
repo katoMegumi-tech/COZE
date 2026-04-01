@@ -1,7 +1,6 @@
 package com.cqie.admin.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.cqie.admin.common.exception.ClientException;
 import com.cqie.admin.entity.PermissionDO;
 import com.cqie.admin.entity.RoleDO;
 import com.cqie.admin.entity.RolePermissionDO;
@@ -66,7 +65,9 @@ public class UserDetailServiceImpl implements UserDetailsService{
                 .collect(Collectors.toList());
 
         // 查询角色信息
-        List<RoleDO> roles = roleIds.isEmpty() ? new ArrayList<>() : roleMapper.selectBatchIds(roleIds);
+        List<RoleDO> roles = roleIds.isEmpty() ? new ArrayList<>() : roleMapper.selectList(
+                new LambdaQueryWrapper<RoleDO>().in(RoleDO::getId, roleIds)
+        );
 
         // 构建 GrantedAuthority 列表，包含 ROLE_ 前缀的角色和 permission.code
         List<SimpleGrantedAuthority> authorities = new ArrayList<>();
@@ -91,7 +92,9 @@ public class UserDetailServiceImpl implements UserDetailsService{
 
         // 查询权限详情并添加为 authority（使用 permission.code）
         if (!permIds.isEmpty()) {
-            List<PermissionDO> perms = permissionMapper.selectBatchIds(new ArrayList<>(permIds));
+            List<PermissionDO> perms = permissionMapper.selectList(
+                    new LambdaQueryWrapper<PermissionDO>().in(PermissionDO::getId, permIds)
+            );
             if (perms != null) {
                 for (PermissionDO p : perms) {
                     if (p != null && p.getCode() != null && Integer.valueOf(1).equals(p.getStatus())) {

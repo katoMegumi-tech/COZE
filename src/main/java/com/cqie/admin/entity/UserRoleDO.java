@@ -1,13 +1,19 @@
 package com.cqie.admin.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
 @Data
 @TableName("user_role")
-public class UserRoleDO {
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+public class UserRoleDO extends BaseDO {
 
     @TableId(type = IdType.AUTO)
     private Long id;
@@ -17,7 +23,4 @@ public class UserRoleDO {
 
     @TableField("role_id")
     private Long roleId;
-
-    @TableField(fill = FieldFill.INSERT)
-    private LocalDateTime createTime;
 }

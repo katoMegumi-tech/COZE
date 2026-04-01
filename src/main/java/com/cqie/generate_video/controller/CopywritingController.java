@@ -12,6 +12,7 @@ import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 /**
  * 文案生成控制器
@@ -36,6 +37,7 @@ public class CopywritingController {
      * 生成文案（同步方式，等待结果）
      */
     @Operation(summary = "生成文案", description = "根据产品信息和参数生成营销文案（同步方式）")
+    @PreAuthorize("hasAuthority('copywriting:generate')")
     @PostMapping("/generate")
     public Result<CopywritingResponse> generateCopywriting(@Valid @RequestBody CopywritingRequest request) {
         
@@ -67,6 +69,7 @@ public class CopywritingController {
      * 异步生成文案（立即返回任务ID）
      */
     @Operation(summary = "异步生成文案", description = "根据产品信息生成营销文案，异步方式（立即返回任务ID）")
+    @PreAuthorize("hasAuthority('copywriting:generate-async')")
     @PostMapping("/generate-async")
     public Result<CopywritingResponse> generateCopywritingAsync(@Valid @RequestBody CopywritingRequest request) {
 
@@ -82,6 +85,7 @@ public class CopywritingController {
      * 查询文案生成任务状态
      */
     @Operation(summary = "查询任务状态", description = "查询异步生成文案任务的状态")
+    @PreAuthorize("hasAuthority('copywriting:taskStatus')")
     @GetMapping("/task-status/{taskId}")
     public Result<TaskStatusResponse> getTaskStatus(@PathVariable String taskId) {
         log.info("查询任务状态: {}", taskId);

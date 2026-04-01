@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 
 @Data
 @TableName("permission")
-public class PermissionDO {
+public class PermissionDO extends BaseDO {
 
     @TableId(type = IdType.AUTO)
     private Long id;
@@ -29,9 +29,4 @@ public class PermissionDO {
 
     private Integer sort;
 
-    @TableField(fill = FieldFill.INSERT)
-    private LocalDateTime createTime;
-
-    @TableField(fill = FieldFill.INSERT_UPDATE)
-    private LocalDateTime updateTime;
 }

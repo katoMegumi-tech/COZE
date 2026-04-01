@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 
 @Data
 @TableName("role_permission")
-public class RolePermissionDO {
+public class RolePermissionDO extends BaseDO {
 
     @TableId(type = IdType.AUTO)
     private Long id;
@@ -19,6 +19,4 @@ public class RolePermissionDO {
     @TableField("permission_id")
     private Long permissionId;
 
-    @TableField(fill = FieldFill.INSERT)
-    private LocalDateTime createTime;
 }

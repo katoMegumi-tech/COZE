@@ -12,8 +12,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -33,6 +34,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter{
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private UserDetailsService userDetailsService;
 
 
     @Override
@@ -67,11 +71,40 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter{
             return;
         }
 
-        // 创建认证对象，包含用户名、密码（null表示已通过JWT验证无需密码）和权限列表
+        // 从 token 中提取用户名
+        String username = JwtUtil.extractUsername(jwt);
+        if (username == null) {
+            sendUnauthorizedResponse(response, "令牌中未包含用户名");
+            return;
+        }
+
+        // 使用 UserDetailsService 加载用户及其权限
+        UserDetails userDetails;
+        try {
+            userDetails = userDetailsService.loadUserByUsername(username);
+        } catch (Exception e) {
+            log.error("加载用户失败: {}", e.getMessage());
+            sendUnauthorizedResponse(response, "加载用户信息失败");
+            return;
+        }
+
+        if (userDetails == null) {
+            sendUnauthorizedResponse(response, "用户不存在");
+            return;
+        }
+
+        // 可选：再次校验 token 与 userDetails 匹配
+        if (!JwtUtil.validateToken(jwt, userDetails)) {
+            log.info("JWT 与用户信息不匹配或已过期");
+            sendUnauthorizedResponse(response, "令牌与用户信息不匹配或已过期");
+            return;
+        }
+
+        // 创建认证对象，包含用户详情和权限
         UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
-                JwtUtil.extractUsername(jwt),  // 从JWT中提取用户名
-                null,                          // 不需要密码，因为JWT已经验证了身份
-                AuthorityUtils.NO_AUTHORITIES
+                userDetails,
+                null,
+                userDetails.getAuthorities()
         );
 
         // 将认证信息存储到安全上下文中

@@ -12,7 +12,9 @@ import com.cqie.admin.dto.request.UserUpdateRequest;
 import com.cqie.admin.dto.response.UserGetUserResponse;
 import com.cqie.admin.dto.response.UserUpdateResponse;
 import com.cqie.admin.entity.UserDO;
+import com.cqie.admin.entity.UserRoleDO;
 import com.cqie.admin.mapper.UserMapper;
+import com.cqie.admin.service.UserRoleService;
 import com.cqie.admin.service.UserService;
 import com.cqie.admin.util.BeanUtil;
 import com.cqie.admin.util.JwtUtil;
@@ -42,6 +44,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, UserDO> implements 
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final RedisUtil redisUtil;
+    private final UserRoleService userRoleService;
 
     /**
      * 获取当前登录用户名
@@ -121,7 +124,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, UserDO> implements 
         try {
             requestParam.setPassword(passwordEncoder.encode(requestParam.getPassword()));//加密
             //插入用户
-            int insert = baseMapper.insert(BeanUtil.convert(requestParam, UserDO.class));
+            UserDO userDO = BeanUtil.convert(requestParam, UserDO.class);
+            int insert = baseMapper.insert(userDO);
+            Long id = userDO.getId();
+
+            //给用户配置默认角色
+            userRoleService.save(
+                    UserRoleDO.builder()
+                            .userId(id)
+                            .roleId(2L) //默认角色id
+                            .build()
+            );
+
+
             if (insert < 1) {
                 throw new ClientException("500", "用户保存失败");
             }

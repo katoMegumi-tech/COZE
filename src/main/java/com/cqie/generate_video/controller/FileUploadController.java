@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 /**
  * 文件上传控制器
@@ -30,6 +31,7 @@ public class FileUploadController {
      * @return 上传结果，包含文件 ID 等信息
      */
     @Operation(summary = "上传文件到 Coze", description = "上传图片或视频文件到 Coze 平台，返回文件 ID")
+    @PreAuthorize("hasAuthority('upload:coze')")
     @PostMapping(value = "/coze", consumes = "multipart/form-data")
     public Result<CozeFileUploadResponse.FileData> uploadToCoze(@RequestParam("file") MultipartFile file) {
         

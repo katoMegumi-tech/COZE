@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 
 @Data
 @TableName("role")
-public class RoleDO {
+public class RoleDO extends BaseDO {
 
     @TableId(type = IdType.AUTO)
     private Long id;
@@ -21,9 +21,4 @@ public class RoleDO {
 
     private Integer status;
 
-    @TableField(fill = FieldFill.INSERT)
-    private LocalDateTime createTime;
-
-    @TableField(fill = FieldFill.INSERT_UPDATE)
-    private LocalDateTime updateTime;
 }
