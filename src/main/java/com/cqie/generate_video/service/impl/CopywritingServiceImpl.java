@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.cqie.generate_video.constant.PointsConsumeEnum.VIDEO_GENERATION;
+import static com.cqie.generate_video.constant.PointsConsumeEnum.XIAOHONGSHU_COPY_GENERATION;
 
 /**
  * 文案生成服务实现
@@ -56,8 +57,8 @@ public class CopywritingServiceImpl implements CopywritingService {
         String username = SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString();
         userPointsLogService.updateUserPoints(
                 username,
-                VIDEO_GENERATION.getPoints(),
-                VIDEO_GENERATION.getDesc());
+                XIAOHONGSHU_COPY_GENERATION.getPoints(),
+                XIAOHONGSHU_COPY_GENERATION.getDesc());
 
 
         log.info("开始生成文案，产品名称: {}", request.getProductServiceName());
