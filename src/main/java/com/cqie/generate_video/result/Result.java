@@ -1,15 +1,20 @@
 package com.cqie.generate_video.result;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import java.io.Serializable;
 
+@Schema(description = "统一响应结果")
 @Data
 public class Result<T> implements Serializable {
     
+    @Schema(description = "状态码", example = "200")
     private Integer code;
     
+    @Schema(description = "响应消息", example = "success")
     private String message;
     
+    @Schema(description = "响应数据")
     private T data;
     
     public Result() {

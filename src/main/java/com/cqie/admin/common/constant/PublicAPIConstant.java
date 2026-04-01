@@ -14,6 +14,7 @@ public class PublicAPIConstant {
             "/api/copywriting/**", //生成文案
             "/api/coze/workflow/**", //调用工作流
             "/v3/api-docs/**",     // Swagger API文档
+            "/v3/api-docs.yaml/**",
             "/swagger-ui/**",
             "/swagger-ui.html"
     );
