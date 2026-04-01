@@ -4,6 +4,7 @@ package com.cqie.admin.controller;
 import com.cqie.admin.dto.request.UserLoginRequest;
 import com.cqie.admin.dto.request.UserRegisterRequest;
 import com.cqie.admin.dto.request.UserUpdateRequest;
+import com.cqie.admin.dto.response.UserLoginResponse;
 import com.cqie.admin.dto.response.UserUpdateResponse;
 import com.cqie.admin.service.UserService;
 import com.cqie.generate_video.result.Result;
@@ -29,7 +30,7 @@ public class UserController {
      */
     @Operation(summary = "用户登录", description = "用户名密码登录，返回 JWT Token")
     @PostMapping("/login")
-    public Result<String> login(@RequestBody UserLoginRequest requestParam) {
+    public Result<UserLoginResponse> login(@RequestBody UserLoginRequest requestParam) {
         return Result.success(userService.login(requestParam));
     }
 
