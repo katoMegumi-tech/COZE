@@ -10,9 +10,6 @@ public class PublicAPIConstant {
     public static final List<String> PUBLIC_API_SET = List.of(
             "/api/admin/user/login", // 登录接口
             "/api/admin/user/register", // 注册接口
-            "/api/upload/coze", // 上传接口
-            "/api/copywriting/**", //生成文案
-            "/api/coze/workflow/**", //调用工作流
             "/api/kling/**", //调用可灵视频生成
             "/v3/api-docs/**", // Swagger API 文档
             "/swagger-ui/**", // Swagger UI
