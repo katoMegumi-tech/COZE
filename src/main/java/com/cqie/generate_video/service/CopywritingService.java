@@ -10,11 +10,14 @@ public interface CopywritingService {
     
     /**
      * 生成文案
+     * @param request 请求参数
+     * @param username 用户名
+     * @return 响应
      */
-    CopywritingResponse generateCopywriting(CopywritingRequest request);
+    CopywritingResponse generateCopywriting(CopywritingRequest request, String username);
 
     /**
      * 异步生成文案
      */
-    CopywritingResponse generateCopywritingAsync(CopywritingRequest request);
+    CopywritingResponse generateCopywritingAsync(CopywritingRequest request, String username);
 }

@@ -38,16 +38,18 @@ spring:
 springdoc:
   api-docs:
     path: /v3/api-docs
+    enabled: true
   swagger-ui:
     path: /swagger-ui.html
     operations-sorter: alpha
     tags-sorter: alpha
 
+
 server:
   port: 8088
 
 coze:
-  token: pat_BCVIs2dfos4sM6xfDeltCNZEgbp2aOyP82DkLzEKgjMM6UjC7L2hXsmkG0qx9cjE
+  token: pat_2jDBZ9194UbpAI9MykYgCBX4OrGxDa7vR5BAR1RMCcPC9zERVsrBLyRnTSpeJ77K
   base-url: https://api.coze.cn
   workflow-id: "7621433301101887522"
   copywriting-workflow-id: "7620722682200358922"

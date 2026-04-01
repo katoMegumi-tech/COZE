@@ -22,6 +22,7 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.cqie.generate_video.constant.PointsConsumeEnum.VIDEO_GENERATION;
+import static com.cqie.generate_video.constant.PointsConsumeEnum.XIAOHONGSHU_COPY_GENERATION;
 
 /**
  * Coze 工作流服务实现
@@ -47,13 +48,13 @@ public class CozeWorkflowServiceImpl implements CozeWorkflowService {
 
     @Transactional(rollbackFor = Exception.class)
     @Override
-    public CozeWorkflowResponse runWorkflow(CozeWorkflowRequest request) {
+    public CozeWorkflowResponse runWorkflow(CozeWorkflowRequest request, String username) {
 
-        String username = SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString();
         userPointsLogService.updateUserPoints(
                 username,
-                VIDEO_GENERATION.getPoints(),
-                VIDEO_GENERATION.getDesc());
+                XIAOHONGSHU_COPY_GENERATION.getPoints(),
+                XIAOHONGSHU_COPY_GENERATION.getDesc()
+        );
 
 
         // 使用配置文件中的 workflow_id

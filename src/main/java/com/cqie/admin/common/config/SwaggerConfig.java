@@ -1,9 +1,12 @@
 package com.cqie.admin.common.config;
 
+import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.ExternalDocumentation;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.License;
+import io.swagger.v3.oas.models.security.SecurityRequirement;
+import io.swagger.v3.oas.models.security.SecurityScheme;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -22,6 +25,18 @@ public class SwaggerConfig {
                         .license(new License().name("Apache 2.0").url("http://springdoc.org")))
                 .externalDocs(new ExternalDocumentation()
                         .description("Coze Video Generation Wiki Documentation")
-                        .url("https://github.com/cqie/coze-video-api"));
+                        .url("https://github.com/cqie/coze-video-api"))
+                .components(new Components()
+                        .addSecuritySchemes("bearerAuth",
+                                new SecurityScheme()
+                                        .type(SecurityScheme.Type.HTTP)
+                                        .scheme("bearer")
+                                        .bearerFormat("JWT")
+                                        .name("Authorization")
+                                        .description("请输入Token，格式：Bearer {token}")
+                        )
+                )
+                // 全局开启授权
+                .addSecurityItem(new SecurityRequirement().addList("bearerAuth"));
     }
 }

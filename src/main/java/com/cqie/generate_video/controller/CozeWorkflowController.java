@@ -1,5 +1,6 @@
 package com.cqie.generate_video.controller;
 
+import com.cqie.admin.common.exception.ClientException;
 import com.cqie.generate_video.dto.request.CozeWorkflowRequest;
 import com.cqie.generate_video.dto.response.TaskStatusResponse;
 import com.cqie.generate_video.result.Result;
@@ -10,6 +11,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 
@@ -60,10 +62,11 @@ public class CozeWorkflowController {
         log.info("videoStyle: {}", request.getVideoStyle());
         log.info("videoSubtitle: {}", request.getVideoSubtitle());
         log.info("==========================================");
-        
+
+
         // 创建任务
         String taskId = taskManager.createTask();
-        
+
         // 异步执行（通过 Service 调用）
         asyncWorkflowService.executeWorkflowAsync(taskId, request);
         

@@ -5,6 +5,7 @@ import com.cqie.generate_video.dto.response.CozeWorkflowResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 /**
@@ -29,13 +30,15 @@ public class AsyncWorkflowService {
     @Async("videoTaskExecutor")
     public void executeWorkflowAsync(String taskId, CozeWorkflowRequest request) {
         log.info("异步任务开始执行，taskId: {}, 线程: {}", taskId, Thread.currentThread().getName());
+
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
         
         try {
             // 更新状态为处理中
             taskManager.updateTask(taskId, "PROCESSING", 10, "正在生成视频...");
             
             // 执行工作流
-            CozeWorkflowResponse response = cozeWorkflowService.runWorkflow(request);
+            CozeWorkflowResponse response = cozeWorkflowService.runWorkflow(request, username);
             
             // 更新进度
             taskManager.updateTask(taskId, "PROCESSING", 80, "视频生成中...");

@@ -53,4 +53,5 @@ public class CozeWorkflowRequest {
     
     @Schema(description = "是否添加字幕", example = "false")
     private Boolean videoSubtitle;
+
 }

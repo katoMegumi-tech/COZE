@@ -49,4 +49,5 @@ public class CopywritingRequest {
     
     @Schema(description = "参考链接", example = "https://www.autohome.com.cn/news/202603/1312989.html")
     private String referenceLink;
+
 }

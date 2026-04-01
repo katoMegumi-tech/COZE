@@ -1,10 +1,14 @@
 package com.cqie.admin.dto.response;
 
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
+@NoArgsConstructor
 @Builder
+@AllArgsConstructor
 public class UserLoginResponse {
     // 登录账号
     private String username;

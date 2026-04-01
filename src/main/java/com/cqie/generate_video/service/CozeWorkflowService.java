@@ -14,5 +14,5 @@ public interface CozeWorkflowService {
      * @param request 工作流请求参数
      * @return 工作流响应结果
      */
-    CozeWorkflowResponse runWorkflow(CozeWorkflowRequest request);
+    CozeWorkflowResponse runWorkflow(CozeWorkflowRequest request, String username);
 }

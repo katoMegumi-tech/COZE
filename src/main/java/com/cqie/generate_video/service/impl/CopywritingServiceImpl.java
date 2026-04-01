@@ -54,16 +54,24 @@ public class CopywritingServiceImpl implements CopywritingService {
 
     @Transactional(rollbackFor = Exception.class)
     @Override
-    public CopywritingResponse generateCopywriting(CopywritingRequest request) {
-
-        String username = SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString();
+    public CopywritingResponse generateCopywriting(CopywritingRequest request, String username) {
+        return executeCopywritingGeneration(request, username);
+    }
+    
+    /**
+     * 执行文案生成逻辑（支持异步调用）
+     * @param request 请求参数
+     * @param username 用户名（从主线程传递）
+     * @return 生成结果
+     */
+    private CopywritingResponse executeCopywritingGeneration(CopywritingRequest request, String username) {
         userPointsLogService.updateUserPoints(
                 username,
                 XIAOHONGSHU_COPY_GENERATION.getPoints(),
                 XIAOHONGSHU_COPY_GENERATION.getDesc());
-
-
-        log.info("开始生成文案，产品名称: {}", request.getProductServiceName());
+    
+    
+        log.info("开始生成文案，产品名称：{}", request.getProductServiceName());
         
         Map<String, Object> parameters = buildParameters(request);
         
@@ -94,7 +102,7 @@ public class CopywritingServiceImpl implements CopywritingService {
                         parseSseChunk(chunk, contentData, errorData);
                     })
                     .doOnError(e -> log.error("SSE 流错误：{}", e.getMessage()))
-                    .blockLast(Duration.ofMinutes(5)); // 5分钟超时
+                    .blockLast(Duration.ofMinutes(5)); // 5 分钟超时
             
         } catch (Exception e) {
             log.error("调用 Coze API 失败", e);
@@ -134,7 +142,7 @@ public class CopywritingServiceImpl implements CopywritingService {
                                 for (JsonNode link : contentJson.get("output")) {
                                     String url = link.asText();
                                     links.add(url);
-                                    log.info("提取链接: {}", url);
+                                    log.info("提取链接：{}", url);
                                 }
                                 response.setOutputLinks(links);
                                 log.info("提取到 {} 个链接", links.size());
@@ -158,7 +166,7 @@ public class CopywritingServiceImpl implements CopywritingService {
         } else if (contentData.get() != null && !contentData.get().isEmpty()) {
             response.setStatus("SUCCESS");
             response.setContent(contentData.get());
-            log.info("文案生成成功，内容长度: {}", contentData.get().length());
+            log.info("文案生成成功，内容长度：{}", contentData.get().length());
         } else {
             response.setStatus("FAILED");
             response.setErrorMessage("未能提取到文案内容");
@@ -296,46 +304,57 @@ public class CopywritingServiceImpl implements CopywritingService {
     }
 
     /**
-     * 异步生成文案（立即返回任务ID）
+     * 异步生成文案（立即返回任务 ID）
      */
     @Override
-    public CopywritingResponse generateCopywritingAsync(CopywritingRequest request) {
-        log.info("开始异步生成文案，产品名称: {}", request.getProductServiceName());
+    public CopywritingResponse generateCopywritingAsync(CopywritingRequest request, String username) {
 
+        userPointsLogService.updateUserPoints(
+                username,
+                VIDEO_GENERATION.getPoints(),
+                VIDEO_GENERATION.getDesc()
+        );
+
+
+
+
+        log.info("开始异步生成文案，产品名称：{}", request.getProductServiceName());
+        log.info("当前用户：{}", username);
+            
         // 创建任务
         String taskId = taskManager.createTask();
-
-        // 立即返回任务ID
+    
+        // 立即返回任务 ID
         CopywritingResponse response = new CopywritingResponse();
         response.setTaskId(taskId);
         response.setStatus("PROCESSING");
         response.setErrorMessage("任务已提交，请稍后查询");
-
+    
         // 异步执行生成逻辑
         new Thread(() -> {
             try {
-                log.info("后台线程开始处理任务: {}", taskId);
+                log.info("后台线程开始处理任务：{}", taskId);
                 taskManager.updateTask(taskId, "PROCESSING", 10, "正在生成文案...");
-
-                // 执行同步生成逻辑
-                CopywritingResponse result = generateCopywriting(request);
-
+    
+                // 执行同步生成逻辑（传入用户名）
+                CopywritingResponse result = executeCopywritingGeneration(request, username);
+    
                 taskManager.updateTask(taskId, "PROCESSING", 80, "处理中...");
-
+    
                 // 根据结果更新任务状态
                 if ("SUCCESS".equals(result.getStatus())) {
                     taskManager.completeCopywritingTask(taskId, result.getContent(), result.getOutputLinks());
                     log.info("任务 {} 完成", taskId);
                 } else {
                     taskManager.failTask(taskId, result.getErrorMessage());
-                    log.error("任务 {} 失败: {}", taskId, result.getErrorMessage());
+                    log.error("任务 {} 失败：{}", taskId, result.getErrorMessage());
                 }
             } catch (Exception e) {
                 log.error("异步任务 {} 执行失败", taskId, e);
                 taskManager.failTask(taskId, e.getMessage());
             }
         }).start();
-
+    
         return response;
     }
 }

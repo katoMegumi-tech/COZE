@@ -13,6 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 /**
  * 文案生成控制器
@@ -53,10 +54,14 @@ public class CopywritingController {
         log.info("结构偏好: {}", request.getStructurePreference());
         log.info("关键词: {}", request.getKeywords());
         log.info("禁用词: {}", request.getForbiddenWords());
-        log.info("参考链接: {}", request.getReferenceLink());
+        log.info("参考链接：{}", request.getReferenceLink());
+                
+        // 从 SecurityContext 获取当前登录用户名
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        log.info("当前登录用户：{}", username);
         log.info("==========================================");
-        
-        CopywritingResponse response = copywritingService.generateCopywriting(request);
+                
+        CopywritingResponse response = copywritingService.generateCopywriting(request, username);
         
         if ("SUCCESS".equals(response.getStatus())) {
             return Result.success(response);
@@ -70,14 +75,18 @@ public class CopywritingController {
      */
     @PreAuthorize("hasAuthority('copywriting:generate-async')")
     @PostMapping("/generate-async")
-    @Operation(summary = "异步生成文案", description = "提交文案生成参数，立即返回任务ID，后续通过状态查询接口获取结果")
+    @Operation(summary = "异步生成文案", description = "提交文案生成参数，立即返回任务 ID，后续通过状态查询接口获取结果")
     public Result<CopywritingResponse> generateCopywritingAsync(@Valid @RequestBody CopywritingRequest request) {
-
+    
         log.info("========== 收到异步文案生成请求 ==========");
-        log.info("产品名称: {}", request.getProductServiceName());
+        log.info("产品名称：{}", request.getProductServiceName());
+            
+        // 从 SecurityContext 获取当前登录用户名
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        log.info("当前登录用户：{}", username);
         log.info("==========================================");
-
-        CopywritingResponse response = copywritingService.generateCopywritingAsync(request);
+    
+        CopywritingResponse response = copywritingService.generateCopywritingAsync(request, username);
         return Result.success(response);
     }
 
