@@ -7,6 +7,7 @@ import com.cqie.admin.dto.request.UserLoginRequest;
 import com.cqie.admin.dto.request.UserRegisterRequest;
 import com.cqie.admin.dto.request.UserUpdateRequest;
 import com.cqie.admin.dto.response.UserGetUserResponse;
+import com.cqie.admin.dto.response.UserLoginResponse;
 import com.cqie.admin.dto.response.UserUpdateResponse;
 import com.cqie.admin.entity.UserDO;
 
@@ -16,7 +17,7 @@ public interface UserService extends IService<UserDO> {
     UserGetUserResponse getUserByUsername();
 
     // 用户登录
-    String login(UserLoginRequest requestParam);
+    UserLoginResponse login(UserLoginRequest requestParam);
 
     // 用户注册
     void register(UserRegisterRequest requestParam);

@@ -10,6 +10,7 @@ import com.cqie.admin.dto.request.UserLoginRequest;
 import com.cqie.admin.dto.request.UserRegisterRequest;
 import com.cqie.admin.dto.request.UserUpdateRequest;
 import com.cqie.admin.dto.response.UserGetUserResponse;
+import com.cqie.admin.dto.response.UserLoginResponse;
 import com.cqie.admin.dto.response.UserUpdateResponse;
 import com.cqie.admin.entity.UserDO;
 import com.cqie.admin.entity.UserRoleDO;
@@ -32,7 +33,11 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.Random;
+
 import static com.cqie.admin.common.constant.RedisCacheConstant.LOCK_USER_REGISTER;
+import static com.cqie.admin.common.constant.UserRegisterConstant.DEFAULT_POINTS;
+import static com.cqie.admin.common.constant.UserRegisterConstant.DEFAULT_ROLE;
 
 @Service
 @Slf4j
@@ -73,7 +78,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, UserDO> implements 
     }
 
     @Override
-    public String login(UserLoginRequest requestParam) {
+    public UserLoginResponse login(UserLoginRequest requestParam) {
 
         // 使用authenticationManager进行认证
         UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
@@ -87,13 +92,20 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, UserDO> implements 
         //认证通过
         log.info("用户登录成功:{}", requestParam.getUsername());
 
+        UserDO userDO = baseMapper.selectOne(new LambdaQueryWrapper<UserDO>()
+                .eq(UserDO::getUsername, requestParam.getUsername())
+        );
 
-        //TODO 需要在返回的jwt中添加权限消息
+        // 将认证信息存入SecurityContext，并在redis中存储登录态
         SecurityContextHolder.getContext().setAuthentication(authenticate);
         String token = JwtUtil.generateToken(requestParam.getUsername());
         redisUtil.setJti(JwtUtil.extractJti( token), requestParam.getUsername(), 7200L);
 
-        return token;
+        //构建登录响应对象
+        UserLoginResponse convert = BeanUtil.convert(userDO, UserLoginResponse.class);
+        convert.setToken(token);
+
+        return convert;
     }
 
     /**
@@ -107,6 +119,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, UserDO> implements 
         return userRegisterCachePenetrationBloomFilter.contains( username);
     }
 
+    /**
+     * 用户注册
+     * @param requestParam 注册参数
+     */
     @Override
     public void register(UserRegisterRequest requestParam) {
 
@@ -123,8 +139,20 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, UserDO> implements 
 
         try {
             requestParam.setPassword(passwordEncoder.encode(requestParam.getPassword()));//加密
+
+            //检查昵称是否是空，如果是空则生成一个随机昵称
+            String nickname = requestParam.getNickname();
+            if (nickname == null || nickname.trim().isEmpty()) {
+                requestParam.setNickname(generateNickname());
+            }
+
             //插入用户
             UserDO userDO = BeanUtil.convert(requestParam, UserDO.class);
+            userDO.setPoints(DEFAULT_POINTS);
+
+            //写入积分变动表
+
+
             int insert = baseMapper.insert(userDO);
             Long id = userDO.getId();
 
@@ -132,7 +160,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, UserDO> implements 
             userRoleService.save(
                     UserRoleDO.builder()
                             .userId(id)
-                            .roleId(2L) //默认角色id
+                            .roleId(DEFAULT_ROLE) //默认角色id
                             .build()
             );
 
@@ -151,6 +179,17 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, UserDO> implements 
         }
     }
 
+    /**
+     * 生成随机昵称
+     * @return 随机昵称
+     */
+    public String generateNickname() {
+        return "用户" + (10000 + new Random().nextInt(90000));
+    }
+
+    /**
+     * 用户退出登录
+     */
     @Override
     public void logout() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();

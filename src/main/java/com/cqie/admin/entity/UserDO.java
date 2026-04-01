@@ -2,6 +2,9 @@ package com.cqie.admin.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
+
+@EqualsAndHashCode(callSuper = true)
 @Data
 @TableName("sys_user")
 public class UserDO extends BaseDO {

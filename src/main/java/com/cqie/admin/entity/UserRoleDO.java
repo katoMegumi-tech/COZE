@@ -1,13 +1,11 @@
 package com.cqie.admin.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.LocalDateTime;
 
+@EqualsAndHashCode(callSuper = true)
 @Data
 @TableName("user_role")
 @Builder
@@ -22,5 +20,5 @@ public class UserRoleDO extends BaseDO {
     private Long userId;
 
     @TableField("role_id")
-    private Long roleId;
+    private Integer roleId;
 }

@@ -59,7 +59,7 @@ public class UserDetailServiceImpl implements UserDetailsService{
                 .eq(UserRoleDO::getUserId, userDO.getId())
         );
 
-        List<Long> roleIds = userRoleList == null ? new ArrayList<>() : userRoleList.stream()
+        List<Integer> roleIds = userRoleList == null ? new ArrayList<>() : userRoleList.stream()
                 .map(UserRoleDO::getRoleId)
                 .distinct()
                 .collect(Collectors.toList());
