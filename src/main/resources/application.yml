@@ -35,21 +35,16 @@ spring:
           min-idle: 0
           max-wait: -1ms
 
-server:
-  port: 8088
-
 springdoc:
   api-docs:
     path: /v3/api-docs
-    enabled: true
   swagger-ui:
     path: /swagger-ui.html
-    enabled: true
-    operations-sorter: method
+    operations-sorter: alpha
     tags-sorter: alpha
-    try-it-out-enabled: true
-    disable-swagger-default-url: true
-    use-root-path: true
+
+server:
+  port: 8088
 
 coze:
   token: pat_BCVIs2dfos4sM6xfDeltCNZEgbp2aOyP82DkLzEKgjMM6UjC7L2hXsmkG0qx9cjE
@@ -57,6 +52,12 @@ coze:
   workflow-id: "7621433301101887522"
   copywriting-workflow-id: "7620722682200358922"
   timeout-minutes: 10
+
+kling:
+  access-key: "AKFJ4PFmhLFM8GPtTRDDapyPfge4nfgt"
+  secret-key: "CetkPkePtTJKEkypdQ8HAfNMJe9YAYek"
+  base-url: "https://api-beijing.klingai.com/v1/videos/omni-video"
+  token-expire-seconds: 1800
 
 mybatis-plus:
   global-config:

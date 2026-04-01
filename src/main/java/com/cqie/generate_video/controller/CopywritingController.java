@@ -17,10 +17,10 @@ import org.springframework.security.access.prepost.PreAuthorize;
 /**
  * 文案生成控制器
  */
-@Tag(name = "文案生成", description = "AI文案生成相关接口")
 @RestController
 @RequestMapping("/api/copywriting")
 @CrossOrigin()
+@Tag(name = "文案生成", description = "AI 生成营销文案接口")
 public class CopywritingController {
     
     private static final Logger log = LoggerFactory.getLogger(CopywritingController.class);
@@ -36,9 +36,9 @@ public class CopywritingController {
     /**
      * 生成文案（同步方式，等待结果）
      */
-    @Operation(summary = "生成文案", description = "根据产品信息和参数生成营销文案（同步方式）")
     @PreAuthorize("hasAuthority('copywriting:generate')")
     @PostMapping("/generate")
+    @Operation(summary = "同步生成文案", description = "提交文案生成参数，同步等待并返回生成结果")
     public Result<CopywritingResponse> generateCopywriting(@Valid @RequestBody CopywritingRequest request) {
         
         log.info("========== 收到文案生成请求 ==========");
@@ -68,9 +68,9 @@ public class CopywritingController {
     /**
      * 异步生成文案（立即返回任务ID）
      */
-    @Operation(summary = "异步生成文案", description = "根据产品信息生成营销文案，异步方式（立即返回任务ID）")
     @PreAuthorize("hasAuthority('copywriting:generate-async')")
     @PostMapping("/generate-async")
+    @Operation(summary = "异步生成文案", description = "提交文案生成参数，立即返回任务ID，后续通过状态查询接口获取结果")
     public Result<CopywritingResponse> generateCopywritingAsync(@Valid @RequestBody CopywritingRequest request) {
 
         log.info("========== 收到异步文案生成请求 ==========");
@@ -84,9 +84,9 @@ public class CopywritingController {
     /**
      * 查询文案生成任务状态
      */
-    @Operation(summary = "查询任务状态", description = "查询异步生成文案任务的状态")
     @PreAuthorize("hasAuthority('copywriting:taskStatus')")
     @GetMapping("/task-status/{taskId}")
+    @Operation(summary = "查询文案任务状态", description = "根据任务ID获取文案生成的进度和结果")
     public Result<TaskStatusResponse> getTaskStatus(@PathVariable String taskId) {
         log.info("查询任务状态: {}", taskId);
 

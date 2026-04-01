@@ -13,10 +13,12 @@ public class PublicAPIConstant {
             "/api/upload/coze", // 上传接口
             "/api/copywriting/**", //生成文案
             "/api/coze/workflow/**", //调用工作流
-            "/v3/api-docs/**",     // Swagger API文档
-            "/v3/api-docs.yaml/**",
-            "/swagger-ui/**",
-            "/swagger-ui.html"
+            "/api/kling/**", //调用可灵视频生成
+            "/v3/api-docs/**", // Swagger API 文档
+            "/swagger-ui/**", // Swagger UI
+            "/swagger-ui.html", // Swagger UI HTML
+            "/swagger-resources/**", // Swagger 资源
+            "/webjars/**" // Webjars 资源
     );
 
     // Spring 路径匹配器（单例，线程安全）

@@ -1,0 +1,13 @@
+target/
+src/test/
+*.class
+.idea/
+*.iml
+.vscode/
+.env.local
+node_modules/
+dist/
+dist-weapp/
+dist-tt/
+dist-web/
+project.config.json

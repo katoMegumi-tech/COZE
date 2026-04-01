@@ -19,10 +19,10 @@ import java.util.Map;
 /**
  * Coze 工作流控制器
  */
-@Tag(name = "Coze 工作流", description = "视频生成工作流相关接口")
 @RestController
 @RequestMapping("/api/coze")
 @CrossOrigin()
+@Tag(name = "视频生成", description = "Coze 视频生成工作流异步调用及状态查询接口")
 public class CozeWorkflowController {
     
     private static final Logger log = LoggerFactory.getLogger(CozeWorkflowController.class);
@@ -41,9 +41,9 @@ public class CozeWorkflowController {
      * @param request 工作流请求参数
      * @return 任务ID
      */
-    @Operation(summary = "异步生成视频", description = "提交视频生成任务，立即返回任务ID")
     @PreAuthorize("hasAuthority('coze:workflow:async')")
     @PostMapping("/workflow/async")
+    @Operation(summary = "异步运行 Coze 工作流", description = "提交视频生成任务并返回任务ID")
     public Result<Map<String, String>> runWorkflowAsync(@Valid @RequestBody CozeWorkflowRequest request) {
         
         log.info("========== 收到前端请求（异步） ==========");
@@ -80,9 +80,9 @@ public class CozeWorkflowController {
      * @param taskId 任务ID
      * @return 任务状态
      */
-    @Operation(summary = "查询任务状态", description = "根据任务ID查询视频生成进度和结果")
     @PreAuthorize("hasAuthority('coze:workflow:status')")
     @GetMapping("/workflow/status/{taskId}")
+    @Operation(summary = "查询任务状态", description = "根据任务ID获取视频生成任务的当前状态及结果")
     public Result<TaskStatusResponse> getTaskStatus(@PathVariable String taskId) {
         TaskStatusResponse task = taskManager.getTask(taskId);
         if (task == null) {

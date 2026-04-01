@@ -4,6 +4,8 @@ import com.cqie.generate_video.dto.response.CozeFileUploadResponse;
 import com.cqie.generate_video.result.Result;
 import com.cqie.generate_video.service.FileUploadService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -12,10 +14,10 @@ import org.springframework.security.access.prepost.PreAuthorize;
 /**
  * 文件上传控制器
  */
-@Tag(name = "文件上传", description = "文件上传相关接口")
 @RestController
 @RequestMapping("/api/upload")
 @CrossOrigin()
+@Tag(name = "文件上传", description = "上传视频/图片文件到各平台")
 public class FileUploadController {
     
     private final FileUploadService fileUploadService;
@@ -30,10 +32,12 @@ public class FileUploadController {
      * @param file 要上传的文件
      * @return 上传结果，包含文件 ID 等信息
      */
-    @Operation(summary = "上传文件到 Coze", description = "上传图片或视频文件到 Coze 平台，返回文件 ID")
     @PreAuthorize("hasAuthority('upload:coze')")
     @PostMapping(value = "/coze", consumes = "multipart/form-data")
-    public Result<CozeFileUploadResponse.FileData> uploadToCoze(@RequestParam("file") MultipartFile file) {
+    @Operation(summary = "上传文件到 Coze", description = "上传视频文件到 Coze 平台以获取文件ID，用于后续工作流")
+    public Result<CozeFileUploadResponse.FileData> uploadToCoze(
+            @Parameter(description = "要上传的文件", content = @Content(mediaType = "multipart/form-data"))
+            @RequestParam("file") MultipartFile file) {
         
         // 验证文件
         if (file == null || file.isEmpty()) {
