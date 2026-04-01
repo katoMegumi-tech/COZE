@@ -5,4 +5,6 @@ import com.cqie.admin.entity.UserPointsLogDO;
 
 public interface UserPointsLogService extends IService<UserPointsLogDO> {
 
+    void updateUserPoints(String username, int points, String remark);
+
 }
