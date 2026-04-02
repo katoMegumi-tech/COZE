@@ -48,14 +48,7 @@ public class CozeWorkflowServiceImpl implements CozeWorkflowService {
 
     @Transactional(rollbackFor = Exception.class)
     @Override
-    public CozeWorkflowResponse runWorkflow(CozeWorkflowRequest request, String username) {
-
-        userPointsLogService.updateUserPoints(
-                username,
-                XIAOHONGSHU_COPY_GENERATION.getPoints(),
-                XIAOHONGSHU_COPY_GENERATION.getDesc()
-        );
-
+    public CozeWorkflowResponse runWorkflow(CozeWorkflowRequest request) {
 
         // 使用配置文件中的 workflow_id
         String workflowId = cozeConfig.getWorkflowId();

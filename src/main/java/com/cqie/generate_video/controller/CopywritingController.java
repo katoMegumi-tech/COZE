@@ -1,5 +1,6 @@
 package com.cqie.generate_video.controller;
 
+import com.cqie.admin.service.UserPointsLogService;
 import com.cqie.generate_video.dto.request.CopywritingRequest;
 import com.cqie.generate_video.dto.response.CopywritingResponse;
 import com.cqie.generate_video.dto.response.TaskStatusResponse;
@@ -9,11 +10,16 @@ import com.cqie.generate_video.service.TaskManager;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
+
+import static com.cqie.generate_video.constant.PointsConsumeEnum.VIDEO_GENERATION;
+import static com.cqie.generate_video.constant.PointsConsumeEnum.XIAOHONGSHU_COPY_GENERATION;
 
 /**
  * 文案生成控制器
@@ -29,6 +35,9 @@ public class CopywritingController {
     private final CopywritingService copywritingService;
     private final TaskManager taskManager;
 
+    @Autowired
+    private UserPointsLogService userPointsLogService;
+
     public CopywritingController(CopywritingService copywritingService, TaskManager taskManager) {
         this.copywritingService = copywritingService;
         this.taskManager = taskManager;
@@ -37,38 +46,38 @@ public class CopywritingController {
     /**
      * 生成文案（同步方式，等待结果）
      */
-    @PreAuthorize("hasAuthority('copywriting:generate')")
-    @PostMapping("/generate")
-    @Operation(summary = "同步生成文案", description = "提交文案生成参数，同步等待并返回生成结果")
-    public Result<CopywritingResponse> generateCopywriting(@Valid @RequestBody CopywritingRequest request) {
-        
-        log.info("========== 收到文案生成请求 ==========");
-        log.info("产品名称: {}", request.getProductServiceName());
-        log.info("文件ID列表: {}", request.getFileIds());
-        log.info("核心卖点: {}", request.getCoreSellingPoints());
-        log.info("目标受众: {}", request.getTargetAudience());
-        log.info("使用场景: {}", request.getUsageScenario());
-        log.info("文案类型: {}", request.getCopyType());
-        log.info("语气风格: {}", request.getToneStyle());
-        log.info("字数限制: {}", request.getWordCountLimit());
-        log.info("结构偏好: {}", request.getStructurePreference());
-        log.info("关键词: {}", request.getKeywords());
-        log.info("禁用词: {}", request.getForbiddenWords());
-        log.info("参考链接：{}", request.getReferenceLink());
-                
-        // 从 SecurityContext 获取当前登录用户名
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        log.info("当前登录用户：{}", username);
-        log.info("==========================================");
-                
-        CopywritingResponse response = copywritingService.generateCopywriting(request, username);
-        
-        if ("SUCCESS".equals(response.getStatus())) {
-            return Result.success(response);
-        } else {
-            return Result.error(response.getErrorMessage());
-        }
-    }
+//    @PreAuthorize("hasAuthority('copywriting:generate')")
+//    @PostMapping("/generate")
+//    @Operation(summary = "同步生成文案", description = "提交文案生成参数，同步等待并返回生成结果")
+//    public Result<CopywritingResponse> generateCopywriting(@Valid @RequestBody CopywritingRequest request) {
+//
+//        log.info("========== 收到文案生成请求 ==========");
+//        log.info("产品名称: {}", request.getProductServiceName());
+//        log.info("文件ID列表: {}", request.getFileIds());
+//        log.info("核心卖点: {}", request.getCoreSellingPoints());
+//        log.info("目标受众: {}", request.getTargetAudience());
+//        log.info("使用场景: {}", request.getUsageScenario());
+//        log.info("文案类型: {}", request.getCopyType());
+//        log.info("语气风格: {}", request.getToneStyle());
+//        log.info("字数限制: {}", request.getWordCountLimit());
+//        log.info("结构偏好: {}", request.getStructurePreference());
+//        log.info("关键词: {}", request.getKeywords());
+//        log.info("禁用词: {}", request.getForbiddenWords());
+//        log.info("参考链接：{}", request.getReferenceLink());
+//
+//        // 从 SecurityContext 获取当前登录用户名
+//        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+//        log.info("当前登录用户：{}", username);
+//        log.info("==========================================");
+//
+//        CopywritingResponse response = copywritingService.generateCopywriting(request, username);
+//
+//        if ("SUCCESS".equals(response.getStatus())) {
+//            return Result.success(response);
+//        } else {
+//            return Result.error(response.getErrorMessage());
+//        }
+//    }
 
     /**
      * 异步生成文案（立即返回任务ID）
@@ -85,8 +94,14 @@ public class CopywritingController {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         log.info("当前登录用户：{}", username);
         log.info("==========================================");
+
+        userPointsLogService.updateUserPoints(
+                username,
+                XIAOHONGSHU_COPY_GENERATION.getPoints(),
+                XIAOHONGSHU_COPY_GENERATION.getDesc()
+        );
     
-        CopywritingResponse response = copywritingService.generateCopywritingAsync(request, username);
+        CopywritingResponse response = copywritingService.generateCopywritingAsync(request);
         return Result.success(response);
     }
 

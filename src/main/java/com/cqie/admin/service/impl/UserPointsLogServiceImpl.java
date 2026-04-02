@@ -74,23 +74,6 @@ public class UserPointsLogServiceImpl extends ServiceImpl<UserPointsLogMapper, U
                     .remark(remark)
                     .build()
         );
-
-        
-        // 记录积分变更日志
-        UserPointsLogDO log = new UserPointsLogDO();
-        log.setUsername(username);
-        log.setChangePoints(points);
-        log.setCurrentPoints(newPoints);
-        log.setRemark(String.format("积分%s：%d, 当前积分：%d", 
-                                   points > 0 ? "增加" : "减少", 
-                                   Math.abs(points), 
-                                   newPoints));
-        
-        boolean saveSuccess = this.save(log);
-        
-        if (!saveSuccess) {
-            throw new ClientException("500" ,"记录积分变更日志失败");
-        }
     }
     
 }

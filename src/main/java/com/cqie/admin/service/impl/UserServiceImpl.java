@@ -154,7 +154,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, UserDO> implements 
 
             //插入用户
             UserDO userDO = BeanUtil.convert(requestParam, UserDO.class);
-            userDO.setPoints(DEFAULT_POINTS);
                         
             // 确保用户名不为空
             if (requestParam.getUsername() == null || requestParam.getUsername().trim().isEmpty()) {

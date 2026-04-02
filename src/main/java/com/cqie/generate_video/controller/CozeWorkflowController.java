@@ -1,6 +1,7 @@
 package com.cqie.generate_video.controller;
 
 import com.cqie.admin.common.exception.ClientException;
+import com.cqie.admin.service.UserPointsLogService;
 import com.cqie.generate_video.dto.request.CozeWorkflowRequest;
 import com.cqie.generate_video.dto.response.TaskStatusResponse;
 import com.cqie.generate_video.result.Result;
@@ -11,12 +12,16 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.util.HashMap;
 import java.util.Map;
+
+import static com.cqie.generate_video.constant.PointsConsumeEnum.VIDEO_GENERATION;
+import static com.cqie.generate_video.constant.PointsConsumeEnum.XIAOHONGSHU_COPY_GENERATION;
 
 /**
  * Coze 工作流控制器
@@ -31,6 +36,9 @@ public class CozeWorkflowController {
     
     private final AsyncWorkflowService asyncWorkflowService;
     private final TaskManager taskManager;
+
+    @Autowired
+    private UserPointsLogService userPointsLogService;
 
     public CozeWorkflowController(AsyncWorkflowService asyncWorkflowService, TaskManager taskManager) {
         this.asyncWorkflowService = asyncWorkflowService;
@@ -66,6 +74,14 @@ public class CozeWorkflowController {
 
         // 创建任务
         String taskId = taskManager.createTask();
+
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        userPointsLogService.updateUserPoints(
+                username,
+                VIDEO_GENERATION.getPoints(),
+                VIDEO_GENERATION.getDesc()
+        );
 
         // 异步执行（通过 Service 调用）
         asyncWorkflowService.executeWorkflowAsync(taskId, request);

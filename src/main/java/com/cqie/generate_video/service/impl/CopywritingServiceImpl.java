@@ -54,22 +54,16 @@ public class CopywritingServiceImpl implements CopywritingService {
 
     @Transactional(rollbackFor = Exception.class)
     @Override
-    public CopywritingResponse generateCopywriting(CopywritingRequest request, String username) {
-        return executeCopywritingGeneration(request, username);
+    public CopywritingResponse generateCopywriting(CopywritingRequest request) {
+        return executeCopywritingGeneration(request);
     }
     
     /**
      * 执行文案生成逻辑（支持异步调用）
      * @param request 请求参数
-     * @param username 用户名（从主线程传递）
      * @return 生成结果
      */
-    private CopywritingResponse executeCopywritingGeneration(CopywritingRequest request, String username) {
-        userPointsLogService.updateUserPoints(
-                username,
-                XIAOHONGSHU_COPY_GENERATION.getPoints(),
-                XIAOHONGSHU_COPY_GENERATION.getDesc());
-    
+    private CopywritingResponse executeCopywritingGeneration(CopywritingRequest request) {
     
         log.info("开始生成文案，产品名称：{}", request.getProductServiceName());
         
@@ -307,19 +301,10 @@ public class CopywritingServiceImpl implements CopywritingService {
      * 异步生成文案（立即返回任务 ID）
      */
     @Override
-    public CopywritingResponse generateCopywritingAsync(CopywritingRequest request, String username) {
-
-        userPointsLogService.updateUserPoints(
-                username,
-                VIDEO_GENERATION.getPoints(),
-                VIDEO_GENERATION.getDesc()
-        );
-
-
+    public CopywritingResponse generateCopywritingAsync(CopywritingRequest request) {
 
 
         log.info("开始异步生成文案，产品名称：{}", request.getProductServiceName());
-        log.info("当前用户：{}", username);
             
         // 创建任务
         String taskId = taskManager.createTask();
@@ -337,7 +322,7 @@ public class CopywritingServiceImpl implements CopywritingService {
                 taskManager.updateTask(taskId, "PROCESSING", 10, "正在生成文案...");
     
                 // 执行同步生成逻辑（传入用户名）
-                CopywritingResponse result = executeCopywritingGeneration(request, username);
+                CopywritingResponse result = executeCopywritingGeneration(request);
     
                 taskManager.updateTask(taskId, "PROCESSING", 80, "处理中...");
     
