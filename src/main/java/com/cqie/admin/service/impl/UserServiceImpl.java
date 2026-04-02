@@ -155,31 +155,34 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, UserDO> implements 
             //插入用户
             UserDO userDO = BeanUtil.convert(requestParam, UserDO.class);
             userDO.setPoints(DEFAULT_POINTS);
-
-            //写入积分变动表
+                        
+            // 确保用户名不为空
+            if (requestParam.getUsername() == null || requestParam.getUsername().trim().isEmpty()) {
+                throw new ClientException("500", "用户名不能为空");
+            }
+            
+            int insert = baseMapper.insert(userDO);
+            Long id = userDO.getId();
+                        
+            if (insert < 1) {
+                throw new ClientException("500", "用户保存失败");
+            }
+            
+            //写入积分变动表（必须在用户保存之后）
             userPointsLogService.updateUserPoints(
                     requestParam.getUsername(),
                     NEW_USER_REGISTER.getPoints(),
                     NEW_USER_REGISTER.getDesc()
             );
-
-
-            int insert = baseMapper.insert(userDO);
-            Long id = userDO.getId();
-
+            
             //给用户配置默认角色
             userRoleService.save(
                     UserRoleDO.builder()
                             .userId(id)
-                            .roleId(DEFAULT_ROLE) //默认角色id
+                            .roleId(DEFAULT_ROLE) //默认角色 id
                             .build()
             );
-
-
-            if (insert < 1) {
-                throw new ClientException("500", "用户保存失败");
-            }
-
+            
             //添加布隆过滤器
             userRegisterCachePenetrationBloomFilter.add(requestParam.getUsername());
         } catch (Exception e) {
