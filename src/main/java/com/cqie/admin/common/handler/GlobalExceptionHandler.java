@@ -9,7 +9,10 @@ import com.cqie.generate_video.result.Result;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
@@ -17,8 +20,6 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import java.nio.file.AccessDeniedException;
-import java.rmi.AccessException;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -38,7 +39,7 @@ public class GlobalExceptionHandler {
         String exceptionStr = Optional.ofNullable(firstFieldError)
                 .map(FieldError::getDefaultMessage)
                 .orElse(StrUtil.EMPTY);
-        log.error("[{}] {} [参数校验失败] {}", request.getMethod(), getUrl(request), exceptionStr);
+        log.warn("[参数校验失败] [{}] {} - {}", request.getMethod(), getUrl(request), exceptionStr);
         return Result.error(exceptionStr);
     }
 
@@ -47,8 +48,19 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(value = BadCredentialsException.class)
     public Result badCredentialsExceptionHandler(HttpServletRequest request, BadCredentialsException ex) {
-        log.warn("[{}] {} 用户名或密码错误", request.getMethod(), getUrl(request));
+        log.warn("[认证失败] [{}] {} - 用户名或密码错误", request.getMethod(), getUrl(request));
         return Result.error("用户名或密码错误");
+    }
+
+    /**
+     * 拦截权限不足异常
+     */
+    @ExceptionHandler(value = AccessDeniedException.class)
+    public Result accessDeniedExceptionHandler(HttpServletRequest request, AccessDeniedException ex) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String username = authentication != null ? authentication.getName() : "匿名用户";
+        log.warn("[权限不足] [{}] {} - 用户: {}", request.getMethod(), getUrl(request), username);
+        return Result.error("权限不足");
     }
 
     /**
@@ -56,11 +68,12 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(value = {ClientException.class})
     public Result abstractException(HttpServletRequest request, ClientException ex) {
+        String logMsg = String.format("[业务异常] [%s] %s - %s", request.getMethod(), getUrl(request), ex.getMessage());
         if (ex.getCause() != null) {
-            log.error("[{}] {} [ex] {}", request.getMethod(), request.getRequestURL().toString(), ex.toString(), ex.getCause());
-            return Result.error(ex.getMessage());
+            log.error(logMsg, ex.getCause());
+        } else {
+            log.error(logMsg);
         }
-        log.error("[{}] {} [ex] {}", request.getMethod(), request.getRequestURL().toString(), ex.toString());
         return Result.error(ex.getMessage());
     }
 
@@ -69,7 +82,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(value = Throwable.class)
     public Result defaultErrorHandler(HttpServletRequest request, Throwable throwable) {
-        log.error("[{}] {} ", request.getMethod(), getUrl(request), throwable);
+        log.error("[系统异常] [{}] {} - {}", request.getMethod(), getUrl(request), throwable.getMessage(), throwable);
         // 注意，此处是为了聚合模式添加的代码，正常不需要该判断
         if (Objects.equals(throwable.getClass().getSuperclass().getSimpleName(), ClientException.class.getSimpleName())) {
             String errorCode = ReflectUtil.getFieldValue(throwable, "errorCode").toString();
@@ -85,15 +98,6 @@ public class GlobalExceptionHandler {
             return request.getRequestURL().toString();
         }
         return request.getRequestURL().toString() + "?" + queryString;
-    }
-
-    /**
-     * 拦截权限不足异常
-     */
-    @ExceptionHandler(value = AccessDeniedException.class)
-    public Result accessDeniedExceptionHandler(HttpServletRequest request, AccessDeniedException ex) {
-        log.warn("[{}] {} 权限不足", request.getMethod(), getUrl(request));
-        return Result.error("权限不足");
     }
 }
 
