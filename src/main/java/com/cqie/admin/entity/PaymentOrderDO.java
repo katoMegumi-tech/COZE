@@ -75,4 +75,14 @@ public class PaymentOrderDO extends BaseDO {
      * 支付回调结果
      */
     private String notifyResult;
+
+    /**
+     * 产品类型：MEMBER-会员购买，POINTS_PACKAGE-积分加油包
+     */
+    private String productType;
+
+    /**
+     * 产品编码（会员等级或加油包类型）
+     */
+    private String productCode;
 }

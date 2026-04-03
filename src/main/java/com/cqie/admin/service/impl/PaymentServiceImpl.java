@@ -2,6 +2,9 @@ package com.cqie.admin.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.cqie.admin.common.config.WechatPayConfig;
+import com.cqie.admin.common.constant.MemberLevelEnum;
+import com.cqie.admin.common.constant.PointsPackageEnum;
+import com.cqie.admin.common.constant.ProductTypeEnum;
 import com.cqie.admin.common.exception.ClientException;
 import com.cqie.admin.dto.request.PaymentCreateRequest;
 import com.cqie.admin.dto.response.PaymentCreateResponse;
@@ -9,6 +12,7 @@ import com.cqie.admin.entity.PaymentOrderDO;
 import com.cqie.admin.entity.UserDO;
 import com.cqie.admin.mapper.PaymentOrderMapper;
 import com.cqie.admin.mapper.UserMapper;
+import com.cqie.admin.service.MemberService;
 import com.cqie.admin.service.PaymentService;
 import com.cqie.admin.util.WechatPayUtil;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +44,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final WechatPayConfig wechatPayConfig;
     private final PaymentOrderMapper paymentOrderMapper;
     private final UserMapper userMapper;
+    private final MemberService memberService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -53,11 +58,45 @@ public class PaymentServiceImpl implements PaymentService {
             throw new ClientException("500", "用户不存在");
         }
 
+        // 验证产品类型
+        ProductTypeEnum productType = ProductTypeEnum.getByCode(request.getProductType());
+        if (productType == null) {
+            throw new ClientException("500", "无效的产品类型");
+        }
+
+        // 根据产品类型获取价格和商品描述
+        int price;
+        String body;
+        switch (productType) {
+            case MEMBER:
+                MemberLevelEnum memberLevel = MemberLevelEnum.valueOf(request.getProductCode());
+                if (memberLevel == null || memberLevel == MemberLevelEnum.NORMAL) {
+                    throw new ClientException("500", "无效的会员等级");
+                }
+                price = memberLevel.getPrice();
+                body = "开通" + memberLevel.getName();
+                break;
+            case POINTS_PACKAGE:
+                // 检查用户是否可以购买加油包
+                if (!memberService.canPurchasePointsPackage(userDO.getId())) {
+                    throw new ClientException("500", "体验会员无法购买积分加油包");
+                }
+                PointsPackageEnum pkg = PointsPackageEnum.valueOf(request.getProductCode());
+                if (pkg == null) {
+                    throw new ClientException("500", "无效的加油包类型");
+                }
+                price = pkg.getPrice();
+                body = "购买" + pkg.getName();
+                break;
+            default:
+                throw new ClientException("500", "不支持的产品类型");
+        }
+
         // 生成商户订单号
         String orderNo = WechatPayUtil.generateOrderNo();
 
         // 构建统一下单请求参数
-        Map<String, String> unifiedOrderParams = buildUnifiedOrderParams(request, orderNo);
+        Map<String, String> unifiedOrderParams = buildUnifiedOrderParams(price, body, orderNo, request.getOpenid());
 
         // 生成签名
         String sign = WechatPayUtil.generateMD5Sign(unifiedOrderParams, wechatPayConfig.getApiKey());
@@ -104,11 +143,13 @@ public class PaymentServiceImpl implements PaymentService {
                 .orderNo(orderNo)
                 .userId(userDO.getId())
                 .openid(request.getOpenid())
-                .amount(request.getAmount())
-                .body(request.getBody() != null ? request.getBody() : "视频生成服务")
+                .amount(price)
+                .body(body)
                 .payType(request.getPayType())
                 .status(0) // 待支付
                 .prepayId(prepayId)
+                .productType(request.getProductType())
+                .productCode(request.getProductCode())
                 .build();
         paymentOrderMapper.insert(order);
 
@@ -190,6 +231,11 @@ public class PaymentServiceImpl implements PaymentService {
                     notifyData
             );
 
+            // 支付成功后处理业务逻辑
+            if ("SUCCESS".equals(resultCode)) {
+                processPaymentSuccess(order);
+            }
+
             log.info("订单状态更新成功: {}, status: {}", orderNo, status);
 
             return buildReturnXml("SUCCESS", "OK");
@@ -219,19 +265,51 @@ public class PaymentServiceImpl implements PaymentService {
     /**
      * 构建统一下单请求参数
      */
-    private Map<String, String> buildUnifiedOrderParams(PaymentCreateRequest request, String orderNo) {
+    private Map<String, String> buildUnifiedOrderParams(int amount, String body, String orderNo, String openid) {
         Map<String, String> params = new HashMap<>();
         params.put("appid", wechatPayConfig.getAppId());
         params.put("mch_id", wechatPayConfig.getMchId());
         params.put("nonce_str", WechatPayUtil.generateNonceStr());
-        params.put("body", request.getBody() != null ? request.getBody() : "视频生成服务");
+        params.put("body", body);
         params.put("out_trade_no", orderNo);
-        params.put("total_fee", String.valueOf(request.getAmount()));
+        params.put("total_fee", String.valueOf(amount));
         params.put("spbill_create_ip", "127.0.0.1"); // 客户端IP，实际应从请求中获取
         params.put("notify_url", wechatPayConfig.getNotifyUrl());
         params.put("trade_type", wechatPayConfig.getTradeType());
-        params.put("openid", request.getOpenid());
+        params.put("openid", openid);
         return params;
+    }
+
+    /**
+     * 处理支付成功后的业务逻辑
+     */
+    private void processPaymentSuccess(PaymentOrderDO order) {
+        try {
+            ProductTypeEnum productType = ProductTypeEnum.getByCode(order.getProductType());
+            if (productType == null) {
+                log.error("无效的产品类型: {}", order.getProductType());
+                return;
+            }
+
+            switch (productType) {
+                case MEMBER:
+                    MemberLevelEnum memberLevel = MemberLevelEnum.valueOf(order.getProductCode());
+                    if (memberLevel != null) {
+                        memberService.openMember(order.getUserId(), memberLevel);
+                    }
+                    break;
+                case POINTS_PACKAGE:
+                    PointsPackageEnum pkg = PointsPackageEnum.valueOf(order.getProductCode());
+                    if (pkg != null) {
+                        memberService.purchasePointsPackage(order.getUserId(), pkg);
+                    }
+                    break;
+                default:
+                    log.error("不支持的产品类型: {}", productType);
+            }
+        } catch (Exception e) {
+            log.error("处理支付成功业务逻辑失败", e);
+        }
     }
 
     /**

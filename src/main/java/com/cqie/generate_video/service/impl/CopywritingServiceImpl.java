@@ -24,9 +24,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.cqie.generate_video.constant.PointsConsumeEnum.VIDEO_GENERATION;
-import static com.cqie.generate_video.constant.PointsConsumeEnum.XIAOHONGSHU_COPY_GENERATION;
-
 /**
  * 文案生成服务实现
  */

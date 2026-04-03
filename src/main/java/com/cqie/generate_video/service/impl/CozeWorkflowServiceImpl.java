@@ -1,7 +1,9 @@
 package com.cqie.generate_video.service.impl;
 
+import com.cqie.admin.common.exception.ClientException;
 import com.cqie.admin.service.UserPointsLogService;
 import com.cqie.generate_video.config.CozeConfig;
+import com.cqie.generate_video.constant.PointsConsumeEnum;
 import com.cqie.generate_video.dto.request.CozeWorkflowRequest;
 import com.cqie.generate_video.dto.response.CozeWorkflowResponse;
 import com.cqie.generate_video.service.CozeWorkflowService;
@@ -20,9 +22,7 @@ import reactor.core.publisher.Flux;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static com.cqie.generate_video.constant.PointsConsumeEnum.VIDEO_GENERATION;
-import static com.cqie.generate_video.constant.PointsConsumeEnum.XIAOHONGSHU_COPY_GENERATION;
+import java.util.stream.Collectors;
 
 /**
  * Coze 工作流服务实现
@@ -35,9 +35,11 @@ public class CozeWorkflowServiceImpl implements CozeWorkflowService {
     private final CozeConfig cozeConfig;
     private final WebClient webClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final UserPointsLogService userPointsLogService;
 
-    public CozeWorkflowServiceImpl(CozeConfig cozeConfig) {
+    public CozeWorkflowServiceImpl(CozeConfig cozeConfig, UserPointsLogService userPointsLogService) {
         this.cozeConfig = cozeConfig;
+        this.userPointsLogService = userPointsLogService;
         this.webClient = WebClient.builder()
                 .baseUrl(cozeConfig.getBaseUrl())
                 .build();
@@ -47,11 +49,26 @@ public class CozeWorkflowServiceImpl implements CozeWorkflowService {
     @Override
     public CozeWorkflowResponse runWorkflow(CozeWorkflowRequest request) {
 
+        // 获取当前用户名
+        String username = getCurrentUsername();
+        
+        // 计算并扣除积分
+        int videoLength = request.getVideoLength() != null ? request.getVideoLength() : 10;
+        int pointsPerSecond = getPointsPerSecond(request.getGearSelection());
+        int totalPoints = pointsPerSecond * videoLength;
+        
+        // 扣除积分
+        userPointsLogService.updateUserPoints(username, -totalPoints, 
+            getPointsDesc(request.getGearSelection(), videoLength));
+        
+        log.info("用户 {} 扣除积分: {}，视频长度: {}秒，档位: {}", 
+            username, totalPoints, videoLength, request.getGearSelection());
+
         // 使用配置文件中的 workflow_id
         String workflowId = cozeConfig.getWorkflowId();
         
-        log.info("开始运行工作流，workflow_id: {}, file_id: {}, timeout: {} 分钟", 
-            workflowId, request.getFileId(), cozeConfig.getTimeoutMinutes());
+        log.info("开始运行工作流，workflow_id: {}, gear_selection: {}, timeout: {} 分钟", 
+            workflowId, request.getGearSelection(), cozeConfig.getTimeoutMinutes());
 
         Map<String, Object> parameters = buildParameters(request);
 
@@ -203,43 +220,80 @@ public class CozeWorkflowServiceImpl implements CozeWorkflowService {
      * 构建工作流参数
      */
     private Map<String, Object> buildParameters(CozeWorkflowRequest request) {
-        Map<String, Object> params = new HashMap<>();
+        Map<String, Object> input = new LinkedHashMap<>();
         
-        // image 参数需要是 JSON 字符串格式: {"file_id":"xxx"}
-        if (request.getFileId() != null) {
-            try {
-                Map<String, String> imageData = new HashMap<>();
-                imageData.put("file_id", request.getFileId());
-                String imageJson = objectMapper.writeValueAsString(imageData);
-                params.put("image", imageJson);
-            } catch (Exception e) {
-                log.error("构建 image 参数失败", e);
-                throw new RuntimeException("构建 image 参数失败", e);
-            }
+        // 档位选择
+        input.put("gear_selection", request.getGearSelection() != null ? request.getGearSelection() : "std");
+        
+        // 图片列表 - 转换为 <#file:url#> 格式
+        if (request.getImages() != null && !request.getImages().isEmpty()) {
+            List<String> imageFiles = request.getImages().stream()
+                .map(url -> "<#file:" + url + "#>")
+                .collect(Collectors.toList());
+            input.put("images", imageFiles);
+        } else {
+            input.put("images", new ArrayList<>());
         }
         
-        if (request.getProductName() != null) params.put("product_name", request.getProductName());
-        if (request.getProductDesc() != null) params.put("product_desc", request.getProductDesc());
-        if (request.getProductFeatures() != null) params.put("product_features", request.getProductFeatures());
-        if (request.getProductPrice() != null) params.put("product_price", request.getProductPrice());
-        
-        // 设置默认值
-        params.put("video_aspect_ratio", request.getVideoAspectRatio() != null ? request.getVideoAspectRatio() : "16:9");
-        params.put("video_length", request.getVideoLength() != null ? request.getVideoLength() : 10);
-        params.put("video_num", request.getVideoNum() != null ? request.getVideoNum() : 1);
-        params.put("video_resolution", request.getVideoResolution() != null ? request.getVideoResolution() : "720P");
-        // videoSubtitle 默认不传（无字幕）
-        if (request.getVideoSubtitle() != null && request.getVideoSubtitle()) {
-            params.put("video_subtitle", true);
+        // 视频列表 - 转换为 <#file:url#> 格式
+        if (request.getVideos() != null && !request.getVideos().isEmpty()) {
+            List<String> videoFiles = request.getVideos().stream()
+                .map(url -> "<#file:" + url + "#>")
+                .collect(Collectors.toList());
+            input.put("videos", videoFiles);
+        } else {
+            input.put("videos", new ArrayList<>());
         }
         
-        if (request.getVideoScene() != null) params.put("video_scene", request.getVideoScene());
-        if (request.getVideoStyle() != null) params.put("video_style", request.getVideoStyle());
+        // 产品信息
+        if (request.getProductName() != null) input.put("product_name", request.getProductName());
+        if (request.getProductDesc() != null) input.put("product_desc", request.getProductDesc());
+        if (request.getProductFeatures() != null) input.put("product_features", request.getProductFeatures());
+        if (request.getProductPrice() != null) input.put("product_price", request.getProductPrice());
+        
+        // 视频参数
+        input.put("video_aspect_ratio", request.getVideoAspectRatio() != null ? request.getVideoAspectRatio() : "16:9");
+        input.put("video_length", request.getVideoLength() != null ? request.getVideoLength() : 10);
+        if (request.getVideoScene() != null) input.put("video_scene", request.getVideoScene());
+        if (request.getVideoStyle() != null) input.put("video_style", request.getVideoStyle());
+        
+        // 构建最终参数，包装在 _input 中
+        Map<String, Object> params = new LinkedHashMap<>();
+        params.put("_input", input);
         
         log.info("========== 传给 Coze 工作流的参数 ==========");
-        params.forEach((key, value) -> log.info("{}: {}", key, value));
+        try {
+            log.info(objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(params));
+        } catch (Exception e) {
+            log.warn("参数序列化失败", e);
+        }
         log.info("==========================================");
         
         return params;
+    }
+    
+    /**
+     * 根据档位获取每秒消耗积分数
+     */
+    private int getPointsPerSecond(String gearSelection) {
+        if ("premium".equalsIgnoreCase(gearSelection)) {
+            return Math.abs(PointsConsumeEnum.VIDEO_PREMIUM.getPoints());
+        }
+        return Math.abs(PointsConsumeEnum.VIDEO_STANDARD.getPoints());
+    }
+    
+    /**
+     * 获取积分消耗描述
+     */
+    private String getPointsDesc(String gearSelection, int videoLength) {
+        String quality = "premium".equalsIgnoreCase(gearSelection) ? "高级质量" : "标准质量";
+        return quality + "视频生成消耗积分（" + videoLength + "秒）";
+    }
+    
+    /**
+     * 获取当前登录用户名
+     */
+    private String getCurrentUsername() {
+        return SecurityContextHolder.getContext().getAuthentication().getName();
     }
 }

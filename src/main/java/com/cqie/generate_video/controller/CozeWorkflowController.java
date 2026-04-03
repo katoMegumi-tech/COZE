@@ -20,8 +20,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import java.util.HashMap;
 import java.util.Map;
 
-import static com.cqie.generate_video.constant.PointsConsumeEnum.VIDEO_GENERATION;
-import static com.cqie.generate_video.constant.PointsConsumeEnum.XIAOHONGSHU_COPY_GENERATION;
+import static com.cqie.generate_video.constant.PointsConsumeEnum.VIDEO_PREMIUM;
 
 /**
  * Coze 工作流控制器
@@ -57,18 +56,14 @@ public class CozeWorkflowController {
     public Result<Map<String, String>> runWorkflowAsync(@Valid @RequestBody CozeWorkflowRequest request) {
         
         log.info("========== 收到前端请求（异步） ==========");
-        log.info("fileId: {}", request.getFileId());
         log.info("productName: {}", request.getProductName());
         log.info("productDesc: {}", request.getProductDesc());
         log.info("productFeatures: {}", request.getProductFeatures());
         log.info("productPrice: {}", request.getProductPrice());
         log.info("videoAspectRatio: {}", request.getVideoAspectRatio());
         log.info("videoLength: {}", request.getVideoLength());
-        log.info("videoNum: {}", request.getVideoNum());
-        log.info("videoResolution: {}", request.getVideoResolution());
         log.info("videoScene: {}", request.getVideoScene());
         log.info("videoStyle: {}", request.getVideoStyle());
-        log.info("videoSubtitle: {}", request.getVideoSubtitle());
         log.info("==========================================");
 
 
@@ -79,8 +74,8 @@ public class CozeWorkflowController {
 
         userPointsLogService.updateUserPoints(
                 username,
-                VIDEO_GENERATION.getPoints(),
-                VIDEO_GENERATION.getDesc()
+                VIDEO_PREMIUM.getPoints(),
+                VIDEO_PREMIUM.getDesc()
         );
 
         // 异步执行（通过 Service 调用）

@@ -32,4 +32,12 @@ public class PaymentCreateRequest {
     @Schema(description = "用户微信openid", required = true, example = "o1234567890abcdef")
     @NotBlank(message = "用户openid不能为空")
     private String openid;
+
+    @Schema(description = "产品类型：MEMBER-会员购买，POINTS_PACKAGE-积分加油包", required = true, example = "MEMBER")
+    @NotBlank(message = "产品类型不能为空")
+    private String productType;
+
+    @Schema(description = "产品编码（会员等级：TRIAL/VIP/SVIP，加油包：STANDARD）", required = true, example = "VIP")
+    @NotBlank(message = "产品编码不能为空")
+    private String productCode;
 }

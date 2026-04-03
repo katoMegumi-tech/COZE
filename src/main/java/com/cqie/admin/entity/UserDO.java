@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import java.util.Date;
+
 @EqualsAndHashCode(callSuper = true)
 @Data
 @TableName("sys_user")
@@ -35,4 +37,10 @@ public class UserDO extends BaseDO {
 
     // 微信openid
     private String openid;
+
+    // 会员等级 0-普通用户 1-体验会员 2-VIP 3-SVIP
+    private Integer memberLevel;
+
+    // 会员到期时间
+    private Date memberExpireTime;
 }
