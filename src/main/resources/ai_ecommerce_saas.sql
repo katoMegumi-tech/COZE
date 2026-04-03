@@ -101,4 +101,27 @@ INSERT INTO `ai_ecommerce_saas`.`role_permission` (`id`,`role_id`,`permission_id
 INSERT INTO `ai_ecommerce_saas`.`sys_user` (`id`,`username`,`password`,`nickname`,`phone`,`email`,`points`,`status`,`deleted`,`create_time`,`update_time`) VALUES (1,'test01','$2a$10$Js5Zsvt/C8FsCagQ61JENOA1mLkPvabi9U/G2z/hgRqHxUKCK1MR2','test01','19923051654','2946132340@qq.com',100,1,0,'2026-03-31 13:38:42','2026-04-01 16:02:25'),(2,'test02','$2a$10$Js5Zsvt/C8FsCagQ61JENOA1mLkPvabi9U/G2z/hgRqHxUKCK1MR2','model','123456789','1234567',80,1,0,'2026-04-01 11:13:08','2026-04-01 15:30:54');
 -- ai_ecommerce_saas.user_role DML
 INSERT INTO `ai_ecommerce_saas`.`user_role` (`id`,`user_id`,`role_id`,`deleted`,`create_time`,`update_time`) VALUES (1,2,2,0,'2026-04-01 11:13:08','2026-04-01 11:13:08'),(2,1,2,0,'2026-04-01 08:04:29','2026-04-01 08:04:29');
+-- ai_ecommerce_saas.payment_order DDL
+DROP TABLE IF EXISTS `ai_ecommerce_saas`.`payment_order`;
+CREATE TABLE `ai_ecommerce_saas`.`payment_order` (
+`id` BIGINT NOT NULL AUTO_INCREMENT Comment "订单ID",
+`order_no` VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL Comment "商户订单号",
+`user_id` BIGINT NOT NULL Comment "用户ID",
+`openid` VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL Comment "用户微信openid",
+`amount` INT NOT NULL Comment "支付金额（分）",
+`body` VARCHAR(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL Comment "商品描述",
+`pay_type` VARCHAR(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'WECHAT' Comment "支付方式：WECHAT-微信支付",
+`status` TINYINT NOT NULL DEFAULT 0 Comment "支付状态：0-待支付，1-支付成功，2-支付失败，3-已关闭",
+`prepay_id` VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL Comment "微信预支付ID",
+`transaction_id` VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL Comment "微信支付订单号",
+`pay_time` DATETIME NULL Comment "支付完成时间",
+`notify_result` VARCHAR(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL Comment "支付回调结果",
+`deleted` TINYINT NOT NULL DEFAULT 0 Comment "逻辑删除：0=未删除，1=已删除",
+`create_time` DATETIME NULL DEFAULT CURRENT_TIMESTAMP Comment "创建时间",
+`update_time` DATETIME NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP(0) Comment "更新时间",
+INDEX `idx_user_id`(`user_id` ASC) USING BTREE,
+INDEX `idx_status`(`status` ASC) USING BTREE,
+INDEX `idx_order_no`(`order_no` ASC) USING BTREE,
+UNIQUE INDEX `uk_order_no`(`order_no` ASC) USING BTREE,
+PRIMARY KEY (`id`)) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci AUTO_INCREMENT = 1 ROW_FORMAT = Dynamic COMMENT = "支付订单表";
 SET FOREIGN_KEY_CHECKS = 1;

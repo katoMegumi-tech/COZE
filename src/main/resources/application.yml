@@ -61,6 +61,19 @@ kling:
   base-url: "https://api-beijing.klingai.com/v1/videos/omni-video"
   token-expire-seconds: 1800
 
+wechat:
+  pay:
+    # 小程序AppID
+    app-id: wx1234567890abcdef
+    # 商户号
+    mch-id: 779068919
+    # 商户API密钥
+    api-key: your_api_key_here
+    # 支付结果通知地址(需要替换为实际的外网可访问地址)
+    notify-url: https://your-domain.com/api/payment/notify
+    # 交易类型: JSAPI-小程序支付
+    trade-type: JSAPI
+
 mybatis-plus:
   global-config:
     db-config:
