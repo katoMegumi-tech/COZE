@@ -36,9 +36,6 @@ public class CozeWorkflowServiceImpl implements CozeWorkflowService {
     private final WebClient webClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @Autowired
-        private UserPointsLogService userPointsLogService;
-
     public CozeWorkflowServiceImpl(CozeConfig cozeConfig) {
         this.cozeConfig = cozeConfig;
         this.webClient = WebClient.builder()

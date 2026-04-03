@@ -17,6 +17,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.nio.file.AccessDeniedException;
+import java.rmi.AccessException;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -36,7 +38,7 @@ public class GlobalExceptionHandler {
         String exceptionStr = Optional.ofNullable(firstFieldError)
                 .map(FieldError::getDefaultMessage)
                 .orElse(StrUtil.EMPTY);
-        log.error("[{}] {} [ex] {}", request.getMethod(), getUrl(request), exceptionStr);
+        log.error("[{}] {} [参数校验失败] {}", request.getMethod(), getUrl(request), exceptionStr);
         return Result.error(exceptionStr);
     }
 
@@ -83,6 +85,15 @@ public class GlobalExceptionHandler {
             return request.getRequestURL().toString();
         }
         return request.getRequestURL().toString() + "?" + queryString;
+    }
+
+    /**
+     * 拦截权限不足异常
+     */
+    @ExceptionHandler(value = AccessDeniedException.class)
+    public Result accessDeniedExceptionHandler(HttpServletRequest request, AccessDeniedException ex) {
+        log.warn("[{}] {} 权限不足", request.getMethod(), getUrl(request));
+        return Result.error("权限不足");
     }
 }
 

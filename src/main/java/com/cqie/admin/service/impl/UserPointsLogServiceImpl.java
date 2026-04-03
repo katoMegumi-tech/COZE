@@ -1,6 +1,8 @@
 package com.cqie.admin.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.cqie.admin.common.exception.ClientException;
 import com.cqie.admin.entity.UserDO;
@@ -10,6 +12,7 @@ import com.cqie.admin.mapper.UserPointsLogMapper;
 import com.cqie.admin.service.UserPointsLogService;
 import com.cqie.admin.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -75,5 +78,27 @@ public class UserPointsLogServiceImpl extends ServiceImpl<UserPointsLogMapper, U
                     .build()
         );
     }
-    
+
+    /**
+     * 分页查询用户积分日志
+     *
+     * @param current  当前页
+     * @param size     每页大小
+     * @return 分页结果
+     */
+    @Override
+    public IPage<UserPointsLogDO> getPointsLogPage(long current, long size) {
+        // 创建分页对象
+        Page<UserPointsLogDO> page = new Page<>(current, size);
+
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        // 构建查询条件
+        LambdaQueryWrapper<UserPointsLogDO> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(UserPointsLogDO::getUsername, username)
+                    .orderByDesc(UserPointsLogDO::getCreateTime);
+
+        // 执行分页查询
+        return baseMapper.selectPage(page, queryWrapper);
+    }
+
 }

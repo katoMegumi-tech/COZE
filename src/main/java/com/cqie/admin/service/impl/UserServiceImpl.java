@@ -27,6 +27,7 @@ import org.redisson.api.RBloomFilter;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -78,7 +79,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, UserDO> implements 
             throw new ClientException("500", "用户不存在");
         }
 
-        return BeanUtil.convert(userDO, new UserGetUserResponse());
+        return BeanUtil.convert(userDO, UserGetUserResponse.class);
     }
 
     @Override
@@ -159,8 +160,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, UserDO> implements 
             if (requestParam.getUsername() == null || requestParam.getUsername().trim().isEmpty()) {
                 throw new ClientException("500", "用户名不能为空");
             }
-            
-            int insert = baseMapper.insert(userDO);
+
+            int insert = 0;
+            try {
+                insert = baseMapper.insert(userDO);
+            } catch (DuplicateKeyException e) {
+                throw new ClientException("500", "用户名已存在");
+            }
             Long id = userDO.getId();
                         
             if (insert < 1) {
