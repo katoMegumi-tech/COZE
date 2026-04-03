@@ -74,7 +74,7 @@ public class CozeWorkflowController {
 
         userPointsLogService.updateUserPoints(
                 username,
-                VIDEO_PREMIUM.getPoints(),
+                VIDEO_PREMIUM.getPoints() * request.getVideoLength(),
                 VIDEO_PREMIUM.getDesc()
         );
 

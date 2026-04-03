@@ -17,15 +17,11 @@ import java.util.function.Function;
 @Component
 public class JwtUtil {
 
-    private static String secret = JwtConstant.SECRET; // 从配置文件读取密钥
-
-    private static Long expiration = JwtConstant.EXPIRATION; // 过期时间（毫秒）
-
     @Autowired
     private RedisUtil redisUtil;
 
     private static Key getSigningKey() {
-        return Keys.hmacShaKeyFor(secret.getBytes());
+        return Keys.hmacShaKeyFor(JwtConstant.SECRET.getBytes());
     }
 
     /**
@@ -125,7 +121,7 @@ public class JwtUtil {
                 .setSubject(subject)
                 .setId(generateJti())
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + expiration))
+                .setExpiration(new Date(System.currentTimeMillis() + JwtConstant.EXPIRATION))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
@@ -172,7 +168,7 @@ public class JwtUtil {
         String username = extractUsername(token);
         String jti = extractJti(token);
         Date date = extractExpiration(token);
-        long expirationDate = date.getTime() + expiration * 7;
+        long expirationDate = date.getTime() + JwtConstant.EXPIRATION * 7;
 
         redisUtil.setJti(username, jti, expirationDate);
 

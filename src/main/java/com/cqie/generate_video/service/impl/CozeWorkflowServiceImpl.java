@@ -49,21 +49,6 @@ public class CozeWorkflowServiceImpl implements CozeWorkflowService {
     @Override
     public CozeWorkflowResponse runWorkflow(CozeWorkflowRequest request) {
 
-        // 获取当前用户名
-        String username = getCurrentUsername();
-        
-        // 计算并扣除积分
-        int videoLength = request.getVideoLength() != null ? request.getVideoLength() : 10;
-        int pointsPerSecond = getPointsPerSecond(request.getGearSelection());
-        int totalPoints = pointsPerSecond * videoLength;
-        
-        // 扣除积分
-        userPointsLogService.updateUserPoints(username, -totalPoints, 
-            getPointsDesc(request.getGearSelection(), videoLength));
-        
-        log.info("用户 {} 扣除积分: {}，视频长度: {}秒，档位: {}", 
-            username, totalPoints, videoLength, request.getGearSelection());
-
         // 使用配置文件中的 workflow_id
         String workflowId = cozeConfig.getWorkflowId();
         
@@ -270,30 +255,5 @@ public class CozeWorkflowServiceImpl implements CozeWorkflowService {
         log.info("==========================================");
         
         return params;
-    }
-    
-    /**
-     * 根据档位获取每秒消耗积分数
-     */
-    private int getPointsPerSecond(String gearSelection) {
-        if ("premium".equalsIgnoreCase(gearSelection)) {
-            return Math.abs(PointsConsumeEnum.VIDEO_PREMIUM.getPoints());
-        }
-        return Math.abs(PointsConsumeEnum.VIDEO_STANDARD.getPoints());
-    }
-    
-    /**
-     * 获取积分消耗描述
-     */
-    private String getPointsDesc(String gearSelection, int videoLength) {
-        String quality = "premium".equalsIgnoreCase(gearSelection) ? "高级质量" : "标准质量";
-        return quality + "视频生成消耗积分（" + videoLength + "秒）";
-    }
-    
-    /**
-     * 获取当前登录用户名
-     */
-    private String getCurrentUsername() {
-        return SecurityContextHolder.getContext().getAuthentication().getName();
     }
 }

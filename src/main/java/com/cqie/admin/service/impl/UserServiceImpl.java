@@ -25,6 +25,7 @@ import com.cqie.admin.service.UserService;
 import com.cqie.admin.util.BeanUtil;
 import com.cqie.admin.util.JwtUtil;
 import com.cqie.admin.util.RedisUtil;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RBloomFilter;
@@ -63,6 +64,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, UserDO> implements 
     private final UserPointsLogService userPointsLogService;
     private final WechatProperties wechatProperties;
     private final RestTemplate restTemplate;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
      * 获取当前登录用户名
@@ -273,7 +275,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, UserDO> implements 
 
         WechatSessionResponse sessionResponse;
         try {
-            sessionResponse = restTemplate.getForObject(url, WechatSessionResponse.class);
+            // 获取字符串响应，然后手动解析JSON
+            String responseBody = restTemplate.getForObject(url, String.class);
+            sessionResponse = objectMapper.readValue(responseBody, WechatSessionResponse.class);
         } catch (Exception e) {
             log.error("调用微信接口失败", e);
             throw new ClientException("500", "微信登录服务异常");

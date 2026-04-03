@@ -11,7 +11,7 @@ public class JwtConstant {
     @Value("${jwt.secret}")
     private String secretValue;
 
-    @Value("${jwt.expire:7200000}")
+    @Value("${jwt.expire}")
     private Long expirationValue;
 
     public static String SECRET;

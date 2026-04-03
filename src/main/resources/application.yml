@@ -81,9 +81,9 @@ wechat:
 
 jwt:
   # JWT密钥（请替换为实际的安全密钥）
-  secret: ${JWT_SECRET:8f3hG@9kL#2mN$5pQ^7rT&1vW*yXzB4cD6eF}
-  # Token过期时间（毫秒），默认2小时 = 7200000
-  expire: ${JWT_EXPIRE:7200000}
+  secret: 8f3hG@9kL#2mN$5pQ^7rT&1vW*yXzB4cD6eF
+  # Token过期时间（毫秒），7天 = 604800000
+  expire: 604800000
 
 mybatis-plus:
   global-config:
