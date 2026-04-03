@@ -1,5 +1,7 @@
 package com.cqie.generate_video.dto.request;
 
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -12,6 +14,7 @@ import java.util.List;
  * Coze 工作流请求参数
  */
 @Data
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 @Schema(description = "视频生成请求参数")
 public class CozeWorkflowRequest {
 
@@ -19,11 +22,11 @@ public class CozeWorkflowRequest {
     @NotBlank(message = "档位选择不能为空")
     private String gearSelection;
 
-    @Schema(description = "图片URL列表", example = "[\"https://example.com/image1.jpg\"]")
+    @Schema(description = "图片ID列表")
     private List<String> images;
 
-    @Schema(description = "视频URL列表（用于参考视频）", example = "[\"https://example.com/video1.mp4\"]")
-    private List<String> videos;
+    @Schema(description = "视频信息列表（用于参考视频）")
+    private List<VideoInfo> videos;
 
     @Schema(description = "产品名称", example = "饺同学鲜制水饺")
     private String productName;
@@ -50,5 +53,14 @@ public class CozeWorkflowRequest {
     
     @Schema(description = "视频风格", example = "电商")
     private String videoStyle;
+
+    @Schema(description = "视频数量", example = "1")
+    private Integer videoNum;
+
+    @Schema(description = "视频分辨率", example = "720P")
+    private String videoResolution;
+
+    @Schema(description = "是否添加字幕", example = "false")
+    private Boolean videoSubtitle;
 
 }

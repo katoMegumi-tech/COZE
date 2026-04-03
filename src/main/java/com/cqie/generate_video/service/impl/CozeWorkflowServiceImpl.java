@@ -220,10 +220,10 @@ public class CozeWorkflowServiceImpl implements CozeWorkflowService {
             input.put("images", new ArrayList<>());
         }
         
-        // 视频列表 - 转换为 <#file:url#> 格式
+        // 视频列表 - 转换为 <#file:id#> 格式
         if (request.getVideos() != null && !request.getVideos().isEmpty()) {
             List<String> videoFiles = request.getVideos().stream()
-                .map(url -> "<#file:" + url + "#>")
+                .map(video -> "<#file:" + video.getId() + "#>")
                 .collect(Collectors.toList());
             input.put("videos", videoFiles);
         } else {

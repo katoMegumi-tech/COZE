@@ -22,5 +22,5 @@ public class CozeConfig {
     /**
      * 工作流超时时间（分钟），默认 10 分钟
      */
-    private Integer timeoutMinutes = 10;
+    private Integer timeoutMinutes = 15;
 }
