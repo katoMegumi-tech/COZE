@@ -8,7 +8,7 @@ import jakarta.annotation.PostConstruct;
 @Component
 public class JwtConstant {
 
-    @Value("${jwt.secret:8f3hG@9kL#2mN$5pQ^7rT&1vW*yXzB4cD6eF}")
+    @Value("${jwt.secret}")
     private String secretValue;
 
     @Value("${jwt.expire:7200000}")
