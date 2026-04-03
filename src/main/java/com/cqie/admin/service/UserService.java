@@ -6,9 +6,11 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.cqie.admin.dto.request.UserLoginRequest;
 import com.cqie.admin.dto.request.UserRegisterRequest;
 import com.cqie.admin.dto.request.UserUpdateRequest;
+import com.cqie.admin.dto.request.WechatLoginRequest;
 import com.cqie.admin.dto.response.UserGetUserResponse;
 import com.cqie.admin.dto.response.UserLoginResponse;
 import com.cqie.admin.dto.response.UserUpdateResponse;
+import com.cqie.admin.dto.response.WechatLoginResponse;
 import com.cqie.admin.entity.UserDO;
 
 public interface UserService extends IService<UserDO> {
@@ -31,5 +33,7 @@ public interface UserService extends IService<UserDO> {
     // 更新用户信息
     UserUpdateResponse updateUser(UserUpdateRequest requestParma);
 
+    // 微信小程序登录
+    WechatLoginResponse wechatLogin(WechatLoginRequest requestParam);
 
 }

@@ -62,9 +62,14 @@ kling:
   token-expire-seconds: 1800
 
 wechat:
+  miniapp:
+    # 小程序AppID（请替换为实际的小程序AppID）
+    appid: ${WECHAT_APPID:wxb6e73136954c2093}
+    # 小程序AppSecret（请替换为实际的小程序AppSecret）
+    secret: ${WECHAT_SECRET:4dfaf365395a557a38614516926fc027}
   pay:
     # 小程序AppID
-    app-id: wx1234567890abcdef
+    app-id: ${WECHAT_APPID:wxb6e73136954c2093}
     # 商户号
     mch-id: 779068919
     # 商户API密钥
@@ -73,6 +78,12 @@ wechat:
     notify-url: https://your-domain.com/api/payment/notify
     # 交易类型: JSAPI-小程序支付
     trade-type: JSAPI
+
+jwt:
+  # JWT密钥（请替换为实际的安全密钥）
+  secret: ${JWT_SECRET:8f3hG@9kL#2mN$5pQ^7rT&1vW*yXzB4cD6eF}
+  # Token过期时间（毫秒），默认2小时 = 7200000
+  expire: ${JWT_EXPIRE:7200000}
 
 mybatis-plus:
   global-config:

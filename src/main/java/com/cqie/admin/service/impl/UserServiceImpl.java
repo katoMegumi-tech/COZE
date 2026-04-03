@@ -6,12 +6,16 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.cqie.admin.common.exception.ClientException;
+import com.cqie.admin.common.config.WechatProperties;
 import com.cqie.admin.dto.request.UserLoginRequest;
 import com.cqie.admin.dto.request.UserRegisterRequest;
 import com.cqie.admin.dto.request.UserUpdateRequest;
+import com.cqie.admin.dto.request.WechatLoginRequest;
 import com.cqie.admin.dto.response.UserGetUserResponse;
 import com.cqie.admin.dto.response.UserLoginResponse;
 import com.cqie.admin.dto.response.UserUpdateResponse;
+import com.cqie.admin.dto.response.WechatLoginResponse;
+import com.cqie.admin.dto.response.WechatSessionResponse;
 import com.cqie.admin.entity.UserDO;
 import com.cqie.admin.entity.UserRoleDO;
 import com.cqie.admin.mapper.UserMapper;
@@ -35,8 +39,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.Random;
+import java.util.UUID;
 
 import static com.cqie.admin.common.constant.RedisCacheConstant.LOCK_USER_REGISTER;
 import static com.cqie.admin.common.constant.UserRegisterConstant.DEFAULT_POINTS;
@@ -55,6 +61,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, UserDO> implements 
     private final RedisUtil redisUtil;
     private final UserRoleService userRoleService;
     private final UserPointsLogService userPointsLogService;
+    private final WechatProperties wechatProperties;
+    private final RestTemplate restTemplate;
 
     /**
      * 获取当前登录用户名
@@ -240,5 +248,127 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, UserDO> implements 
 
         log.info("用户更新成功:{}", username);
         return BeanUtil.convert(userDO, UserUpdateResponse.class);
+    }
+
+    /**
+     * 微信小程序登录
+     * @param requestParam 微信登录请求参数
+     * @return 登录响应
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public WechatLoginResponse wechatLogin(WechatLoginRequest requestParam) {
+        String code = requestParam.getCode();
+        if (code == null || code.trim().isEmpty()) {
+            throw new ClientException("400", "微信登录凭证不能为空");
+        }
+
+        // 1. 调用微信接口换取openid和session_key
+        String url = String.format(
+                "https://api.weixin.qq.com/sns/jscode2session?appid=%s&secret=%s&js_code=%s&grant_type=authorization_code",
+                wechatProperties.getAppid(),
+                wechatProperties.getSecret(),
+                code
+        );
+
+        WechatSessionResponse sessionResponse;
+        try {
+            sessionResponse = restTemplate.getForObject(url, WechatSessionResponse.class);
+        } catch (Exception e) {
+            log.error("调用微信接口失败", e);
+            throw new ClientException("500", "微信登录服务异常");
+        }
+
+        if (sessionResponse == null) {
+            throw new ClientException("500", "微信登录服务无响应");
+        }
+
+        if (sessionResponse.getErrcode() != null && sessionResponse.getErrcode() != 0) {
+            log.error("微信登录失败，errcode: {}, errmsg: {}", sessionResponse.getErrcode(), sessionResponse.getErrmsg());
+            throw new ClientException("500", "微信登录失败: " + sessionResponse.getErrmsg());
+        }
+
+        String openid = sessionResponse.getOpenid();
+        if (openid == null || openid.trim().isEmpty()) {
+            throw new ClientException("500", "获取微信用户信息失败");
+        }
+
+        log.info("微信用户登录，openid: {}", openid);
+
+        // 2. 根据openid查询用户
+        UserDO userDO = baseMapper.selectOne(
+                new LambdaQueryWrapper<UserDO>()
+                        .eq(UserDO::getOpenid, openid)
+        );
+
+        // 3. 用户不存在则创建新用户
+        if (userDO == null) {
+            log.info("微信用户首次登录，创建新用户，openid: {}", openid);
+            userDO = createWechatUser(openid);
+        }
+
+        // 4. 生成JWT token
+        String token = JwtUtil.generateToken(userDO.getUsername());
+        redisUtil.setJti(JwtUtil.extractJti(token), userDO.getUsername(), 7200L);
+
+        log.info("微信用户登录成功，username: {}", userDO.getUsername());
+
+        // 5. 构建响应
+        return WechatLoginResponse.builder()
+                .username(userDO.getUsername())
+                .nickname(userDO.getNickname())
+                .phone(userDO.getPhone())
+                .email(userDO.getEmail())
+                .points(userDO.getPoints())
+                .token(token)
+                .build();
+    }
+
+    /**
+     * 创建微信用户
+     * @param openid 微信openid
+     * @return 创建的用户
+     */
+    private UserDO createWechatUser(String openid) {
+        // 生成随机用户名
+        String username = "wx_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+        String nickname = generateNickname();
+
+        UserDO userDO = new UserDO();
+        userDO.setUsername(username);
+        userDO.setPassword(passwordEncoder.encode(UUID.randomUUID().toString())); // 随机密码
+        userDO.setNickname(nickname);
+        userDO.setOpenid(openid);
+        userDO.setPoints(DEFAULT_POINTS);
+        userDO.setStatus(1);
+
+        // 保存用户
+        int insert = baseMapper.insert(userDO);
+        if (insert < 1) {
+            throw new ClientException("500", "创建用户失败");
+        }
+
+        Long userId = userDO.getId();
+
+        // 配置默认角色
+        userRoleService.save(
+                UserRoleDO.builder()
+                        .userId(userId)
+                        .roleId(DEFAULT_ROLE)
+                        .build()
+        );
+
+        // 添加布隆过滤器
+        userRegisterCachePenetrationBloomFilter.add(username);
+
+        // 记录积分变动
+        userPointsLogService.updateUserPoints(
+                username,
+                NEW_USER_REGISTER.getPoints(),
+                NEW_USER_REGISTER.getDesc()
+        );
+
+        log.info("微信用户创建成功，username: {}, openid: {}", username, openid);
+        return userDO;
     }
 }

@@ -4,8 +4,10 @@ package com.cqie.admin.controller;
 import com.cqie.admin.dto.request.UserLoginRequest;
 import com.cqie.admin.dto.request.UserRegisterRequest;
 import com.cqie.admin.dto.request.UserUpdateRequest;
+import com.cqie.admin.dto.request.WechatLoginRequest;
 import com.cqie.admin.dto.response.UserLoginResponse;
 import com.cqie.admin.dto.response.UserUpdateResponse;
+import com.cqie.admin.dto.response.WechatLoginResponse;
 import com.cqie.admin.service.UserService;
 import com.cqie.generate_video.result.Result;
 import io.swagger.v3.oas.annotations.Operation;
@@ -91,5 +93,15 @@ public class UserController {
         return Result.success(userService.updateUser(requestParam));
     }
 
+    /**
+     * 微信小程序登录
+     * @param requestParam 微信登录参数
+     * @return 登录结果
+     */
+    @Operation(summary = "微信小程序登录", description = "使用微信code换取openid并登录，不存在则自动注册")
+    @PostMapping("/wechatLogin")
+    public Result<WechatLoginResponse> wechatLogin(@RequestBody WechatLoginRequest requestParam) {
+        return Result.success(userService.wechatLogin(requestParam));
+    }
 
 }

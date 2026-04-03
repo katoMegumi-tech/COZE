@@ -32,4 +32,7 @@ public class UserDO extends BaseDO {
 
     // 状态 0-禁用 1-正常
     private Integer status;
+
+    // 微信openid
+    private String openid;
 }

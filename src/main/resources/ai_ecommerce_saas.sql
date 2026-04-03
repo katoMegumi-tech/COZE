@@ -61,10 +61,12 @@ CREATE TABLE `ai_ecommerce_saas`.`sys_user` (`id` BIGINT NOT NULL AUTO_INCREMENT
 `email` VARCHAR(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL Comment "邮箱",
 `points` INT NOT NULL DEFAULT 0 Comment "用户积分",
 `status` TINYINT NOT NULL DEFAULT 1 Comment "0禁用 1正常",
+`openid` VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL Comment "微信openid",
 `deleted` TINYINT NOT NULL DEFAULT 0 Comment "0未删 1已删",
 `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP(0),
 UNIQUE INDEX `uk_username`(`username` ASC) USING BTREE,
+INDEX `idx_openid`(`openid` ASC) USING BTREE,
 PRIMARY KEY (`id`)) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci AUTO_INCREMENT = 3 ROW_FORMAT = Dynamic COMMENT = "用户表";
 -- ai_ecommerce_saas.user_points_log DDL
 DROP TABLE IF EXISTS `ai_ecommerce_saas`.`user_points_log`;
