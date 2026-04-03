@@ -161,12 +161,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, UserDO> implements 
                 throw new ClientException("500", "用户名不能为空");
             }
 
-            int insert = 0;
-            try {
-                insert = baseMapper.insert(userDO);
-            } catch (DuplicateKeyException e) {
-                throw new ClientException("500", "用户名已存在");
-            }
+            int insert = baseMapper.insert(userDO);
             Long id = userDO.getId();
                         
             if (insert < 1) {
@@ -190,6 +185,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, UserDO> implements 
             
             //添加布隆过滤器
             userRegisterCachePenetrationBloomFilter.add(requestParam.getUsername());
+        } catch (ClientException e) {
+            // 业务异常直接抛出，保留原始错误信息
+            throw e;
         } catch (Exception e) {
             log.error("注册失败，username: {}", requestParam.getUsername(), e);
             throw new ClientException("500", "注册失败");
