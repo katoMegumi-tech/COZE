@@ -2,6 +2,7 @@ package com.cqie.generate_video.controller;
 
 import com.cqie.admin.common.exception.ClientException;
 import com.cqie.admin.service.UserPointsLogService;
+import com.cqie.generate_video.constant.PointsConsumeEnum;
 import com.cqie.generate_video.dto.request.CozeWorkflowRequest;
 import com.cqie.generate_video.dto.response.TaskStatusResponse;
 import com.cqie.generate_video.result.Result;
@@ -17,10 +18,12 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 
+import java.lang.constant.Constable;
 import java.util.HashMap;
 import java.util.Map;
 
 import static com.cqie.generate_video.constant.PointsConsumeEnum.VIDEO_PREMIUM;
+import static com.cqie.generate_video.constant.PointsConsumeEnum.VIDEO_STANDARD;
 
 /**
  * Coze 工作流控制器
@@ -73,12 +76,12 @@ public class CozeWorkflowController {
 
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
 
-        int point = request.getGearSelection().equals("std") ? 25 : 30;
+        PointsConsumeEnum point = request.getGearSelection().equals("std") ? VIDEO_STANDARD : VIDEO_PREMIUM;
 
         userPointsLogService.updateUserPoints(
                 username,
-                point * request.getVideoLength(),
-                VIDEO_PREMIUM.getDesc()
+                point.getPoints() * request.getVideoLength(),
+                point.getDesc()
         );
 
         // 异步执行（通过 Service 调用）
