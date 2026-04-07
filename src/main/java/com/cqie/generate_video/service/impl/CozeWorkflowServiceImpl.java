@@ -51,9 +51,9 @@ public class CozeWorkflowServiceImpl implements CozeWorkflowService {
 
         // 使用配置文件中的 workflow_id
         String workflowId = cozeConfig.getWorkflowId();
-        
-        log.info("开始运行工作流，workflow_id: {}, gear_selection: {}, timeout: {} 分钟", 
-            workflowId, request.getGearSelection(), cozeConfig.getTimeoutMinutes());
+
+        log.info("开始运行工作流，workflow_id: {}, gearSelection: {}, productName: {}, timeout: {} 分钟",
+            workflowId, request.getGearSelection(), request.getProductName(), cozeConfig.getTimeoutMinutes());
 
         Map<String, Object> parameters = buildParameters(request);
 
@@ -89,8 +89,9 @@ public class CozeWorkflowServiceImpl implements CozeWorkflowService {
                     .blockLast(Duration.ofMinutes(cozeConfig.getTimeoutMinutes()));
 
         } catch (WebClientResponseException e) {
-            log.error("调用 Coze API 失败：{}", e.getStatusCode(), e);
-            throw new RuntimeException("调用 Coze API 失败：" + e.getStatusCode(), e);
+            String errorBody = e.getResponseBodyAsString();
+            log.error("调用 Coze API 失败，状态码: {}，响应: {}", e.getStatusCode(), errorBody, e);
+            throw new RuntimeException("调用 Coze API 失败：" + e.getStatusCode() + "，" + errorBody, e);
         } catch (Exception e) {
             log.error("调用异常：{}", e.getMessage(), e);
             throw new RuntimeException("调用异常：" + e.getMessage(), e);
@@ -115,8 +116,11 @@ public class CozeWorkflowServiceImpl implements CozeWorkflowService {
             response.setCode(0);
             response.setMessage("SUCCESS");
             workflowData.setStatus(hasMessage.get() ? "COMPLETED" : "NO_RESPONSE");
-            log.info("工作流执行成功，生成 {} 个视频", 
-                workflowData.getVideoUrls() != null ? workflowData.getVideoUrls().size() : 0);
+            int videoCount = workflowData.getVideoUrls() != null ? workflowData.getVideoUrls().size() : 0;
+            log.info("工作流执行成功，生成 {} 个视频", videoCount);
+            if (videoCount == 0) {
+                log.warn("未提取到视频 URL，完整响应内容：\n{}", fullResponseBuilder.toString());
+            }
         }
 
         response.setData(workflowData);
@@ -161,31 +165,53 @@ public class CozeWorkflowServiceImpl implements CozeWorkflowService {
 
                     if (content == null || content.equals("{}")) continue;
 
-                    JsonNode contentJson = objectMapper.readTree(content);
-                    JsonNode videoNode = contentJson.get("video");
+                    log.debug("解析 content: {}", content);
 
-                    if (videoNode != null) {
-                        if (workflowData.getVideoUrls() == null) {
-                            workflowData.setVideoUrls(new ArrayList<>());
-                        }
+                    try {
+                        JsonNode contentJson = objectMapper.readTree(content);
 
-                        // video: string
-                        if (videoNode.isTextual()) {
-                            String url = videoNode.asText();
-                            if (!url.isEmpty()) {
-                                workflowData.getVideoUrls().add(url);
-                                log.info("获取到视频 URL: {}", url);
+                        // 尝试从 result 字段获取视频 URL（Coze 工作流返回格式）
+                        JsonNode resultNode = contentJson.get("result");
+                        if (resultNode != null && resultNode.isArray()) {
+                            if (workflowData.getVideoUrls() == null) {
+                                workflowData.setVideoUrls(new ArrayList<>());
                             }
-                        }
-                        // video: array
-                        else if (videoNode.isArray()) {
-                            for (JsonNode v : videoNode) {
-                                String url = v.asText();
+                            for (JsonNode urlNode : resultNode) {
+                                String url = urlNode.asText();
                                 if (!url.isEmpty()) {
                                     workflowData.getVideoUrls().add(url);
-                                    log.info("获取到视频 URL: {}", url);
+                                    log.info("从 result 获取到视频 URL: {}", url);
                                 }
                             }
+                        }
+
+                        // 兼容 video/videos 字段
+                        JsonNode videoNode = contentJson.get("video");
+                        if (videoNode != null) {
+                            addVideoUrls(videoNode, workflowData, "video");
+                        }
+                        JsonNode videosNode = contentJson.get("videos");
+                        if (videosNode != null) {
+                            addVideoUrls(videosNode, workflowData, "videos");
+                        }
+
+                        // 如果 content 本身是 URL（直接返回视频链接）
+                        if (content.startsWith("http") && (workflowData.getVideoUrls() == null || workflowData.getVideoUrls().isEmpty())) {
+                            if (workflowData.getVideoUrls() == null) {
+                                workflowData.setVideoUrls(new ArrayList<>());
+                            }
+                            workflowData.getVideoUrls().add(content);
+                            log.info("从 content 直接获取到视频 URL: {}", content);
+                        }
+                    } catch (Exception e) {
+                        log.warn("解析 content JSON 失败: {}, 错误: {}", content, e.getMessage());
+                        // 如果 content 不是 JSON，可能是直接的 URL
+                        if (content.startsWith("http")) {
+                            if (workflowData.getVideoUrls() == null) {
+                                workflowData.setVideoUrls(new ArrayList<>());
+                            }
+                            workflowData.getVideoUrls().add(content);
+                            log.info("从 content 获取到视频 URL: {}", content);
                         }
                     }
                 }
@@ -202,50 +228,82 @@ public class CozeWorkflowServiceImpl implements CozeWorkflowService {
     }
 
     /**
+     * 添加视频 URL 到列表（辅助方法）
+     */
+    private void addVideoUrls(JsonNode node, CozeWorkflowResponse.WorkflowData workflowData, String fieldName) {
+        if (workflowData.getVideoUrls() == null) {
+            workflowData.setVideoUrls(new ArrayList<>());
+        }
+
+        // 字符串类型
+        if (node.isTextual()) {
+            String url = node.asText();
+            if (!url.isEmpty()) {
+                workflowData.getVideoUrls().add(url);
+                log.info("从 {} 字段获取到视频 URL: {}", fieldName, url);
+            }
+        }
+        // 数组类型
+        else if (node.isArray()) {
+            for (JsonNode v : node) {
+                String url = v.asText();
+                if (!url.isEmpty()) {
+                    workflowData.getVideoUrls().add(url);
+                    log.info("从 {} 数组获取到视频 URL: {}", fieldName, url);
+                }
+            }
+        }
+    }
+
+    /**
      * 构建工作流参数
      */
     private Map<String, Object> buildParameters(CozeWorkflowRequest request) {
-        Map<String, Object> input = new LinkedHashMap<>();
-        
-        // 档位选择
-        input.put("gear_selection", request.getGearSelection() != null ? request.getGearSelection() : "std");
-        
-        // 图片列表 - 转换为 <#file:url#> 格式
-        if (request.getImages() != null && !request.getImages().isEmpty()) {
-            List<String> imageFiles = request.getImages().stream()
-                .map(url -> "<#file:" + url + "#>")
-                .collect(Collectors.toList());
-            input.put("images", imageFiles);
-        } else {
-            input.put("images", new ArrayList<>());
-        }
-        
-        // 视频列表 - 转换为 <#file:id#> 格式
-        if (request.getVideos() != null && !request.getVideos().isEmpty()) {
-            List<String> videoFiles = request.getVideos().stream()
-                .map(video -> "<#file:" + video.getId() + "#>")
-                .collect(Collectors.toList());
-            input.put("videos", videoFiles);
-        } else {
-            input.put("videos", new ArrayList<>());
-        }
-        
-        // 产品信息
-        if (request.getProductName() != null) input.put("product_name", request.getProductName());
-        if (request.getProductDesc() != null) input.put("product_desc", request.getProductDesc());
-        if (request.getProductFeatures() != null) input.put("product_features", request.getProductFeatures());
-        if (request.getProductPrice() != null) input.put("product_price", request.getProductPrice());
-        
-        // 视频参数
-        input.put("video_aspect_ratio", request.getVideoAspectRatio() != null ? request.getVideoAspectRatio() : "16:9");
-        input.put("video_length", request.getVideoLength() != null ? request.getVideoLength() : 10);
-        if (request.getVideoScene() != null) input.put("video_scene", request.getVideoScene());
-        if (request.getVideoStyle() != null) input.put("video_style", request.getVideoStyle());
-        
-        // 构建最终参数，包装在 _input 中
         Map<String, Object> params = new LinkedHashMap<>();
-        params.put("_input", input);
-        
+
+        // 档位选择
+        params.put("gear_selection", request.getGearSelection() != null ? request.getGearSelection() : "std");
+
+        // 图片列表 - 直接使用原始 URL（与官网示例保持一致）
+        if (request.getImages() != null && !request.getImages().isEmpty()) {
+            List<String> imageParams = new ArrayList<>();
+            for (String imageId : request.getImages()) {
+                // 注意转义双引号，实际字符串内容是 {"file_id": "7625842253768032298"}
+                imageParams.add("{\"file_id\": \"" + imageId + "\"}");
+            }
+            params.put("images", imageParams);
+        } else {
+            params.put("images", new ArrayList<>());
+        }
+
+        // 视频列表 - 直接使用原始 URL
+        if (request.getVideos() != null && !request.getVideos().isEmpty()) {
+            List<String> videoParams = new ArrayList<>();
+            for (String videoId : request.getVideos()) {
+                videoParams.add("{\"file_id\": \"" + videoId + "\"}");
+            }
+            params.put("videos", videoParams);
+        } else {
+            params.put("videos", new ArrayList<>());
+        }
+
+        // 产品信息
+        if (request.getProductName() != null) params.put("product_name", request.getProductName());
+        if (request.getProductDesc() != null) params.put("product_desc", request.getProductDesc());
+        if (request.getProductFeatures() != null) params.put("product_features", request.getProductFeatures());
+        if (request.getProductPrice() != null) params.put("product_price", request.getProductPrice());
+
+        // 视频参数
+        params.put("video_aspect_ratio", request.getVideoAspectRatio() != null ? request.getVideoAspectRatio() : "16:9");
+        params.put("video_length", request.getVideoLength() != null ? request.getVideoLength() : 10);
+        if (request.getVideoScene() != null) params.put("video_scene", request.getVideoScene());
+        if (request.getVideoStyle() != null) params.put("video_style", request.getVideoStyle());
+
+        // 新增参数
+        if (request.getVideoNum() != null) params.put("video_num", request.getVideoNum());
+        if (request.getVideoResolution() != null) params.put("video_resolution", request.getVideoResolution());
+        if (request.getVideoSubtitle() != null) params.put("video_subtitle", request.getVideoSubtitle());
+
         log.info("========== 传给 Coze 工作流的参数 ==========");
         try {
             log.info(objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(params));
@@ -253,7 +311,7 @@ public class CozeWorkflowServiceImpl implements CozeWorkflowService {
             log.warn("参数序列化失败", e);
         }
         log.info("==========================================");
-        
+
         return params;
     }
 }
