@@ -43,8 +43,7 @@ public class CozeWorkflowServiceImpl implements CozeWorkflowService {
     public CozeWorkflowResponse runWorkflow(CozeWorkflowRequest request) {
 
         String workflowId = cozeConfig.getWorkflowId();
-        log.info("开始异步运行工作流，workflow_id: {}, timeout: {} 分钟",
-                workflowId, cozeConfig.getTimeoutMinutes());
+        log.info("开始异步运行工作流，workflow_id: {}", workflowId);
 
         Map<String, Object> parameters = buildParameters(request);
         Map<String, Object> requestBody = new HashMap<>();
@@ -176,6 +175,12 @@ public class CozeWorkflowServiceImpl implements CozeWorkflowService {
             }
 
             JsonNode history = dataArr.get(0);
+            String debugUrl = history.path("debug_url").asText("");
+            // 只在第一次获取到时存储，不打印日志
+            if (!debugUrl.isEmpty() && (workflowData.getDebugUrl() == null || workflowData.getDebugUrl().isEmpty())) {
+                workflowData.setDebugUrl(debugUrl);
+            }
+
             String status = history.path("execute_status").asText("");
 
             if ("Running".equalsIgnoreCase(status)) {

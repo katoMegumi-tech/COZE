@@ -21,6 +21,7 @@ public class CozeWorkflowResponse {
         private String id;
         private String status;
         private String debugData; // 调试用的原始数据
+        private String debugUrl; // Coze 工作流调试 URL
         private String errorMessage;
         private Long createTime;
         

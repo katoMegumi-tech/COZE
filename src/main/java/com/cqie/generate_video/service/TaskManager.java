@@ -68,12 +68,22 @@ public class TaskManager {
      * 设置任务完成
      */
     public void completeTask(String taskId, List<String> videoUrls) {
+        completeTask(taskId, videoUrls, null);
+    }
+
+    /**
+     * 设置任务完成（带 debugUrl）
+     */
+    public void completeTask(String taskId, List<String> videoUrls, String debugUrl) {
         TaskStatusResponse task = getTask(taskId);
         if (task != null) {
             task.setStatus("COMPLETED");
             task.setProgress(100);
             task.setMessage("视频生成成功");
             task.setVideoUrls(videoUrls);
+            if (debugUrl != null && !debugUrl.isEmpty()) {
+                task.setDebugUrl(debugUrl);
+            }
             saveTask(taskId, task);
             log.info("任务 {} 完成，生成 {} 个视频", taskId, videoUrls.size());
         }
@@ -83,12 +93,22 @@ public class TaskManager {
      * 设置任务失败
      */
     public void failTask(String taskId, String errorMessage) {
+        failTask(taskId, errorMessage, null);
+    }
+
+    /**
+     * 设置任务失败（带 debugUrl）
+     */
+    public void failTask(String taskId, String errorMessage, String debugUrl) {
         TaskStatusResponse task = getTask(taskId);
         if (task != null) {
             task.setStatus("FAILED");
             task.setProgress(0);
             task.setMessage("生成失败");
             task.setErrorMessage(errorMessage);
+            if (debugUrl != null && !debugUrl.isEmpty()) {
+                task.setDebugUrl(debugUrl);
+            }
             saveTask(taskId, task);
             log.error("任务 {} 失败: {}", taskId, errorMessage);
         }

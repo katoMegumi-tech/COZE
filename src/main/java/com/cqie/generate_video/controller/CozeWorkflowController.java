@@ -109,6 +109,11 @@ public class CozeWorkflowController {
             return Result.error("任务不存在");
         }
 
+        // 打印 debug_url 供调试
+        if (task.getDebugUrl() != null && !task.getDebugUrl().isEmpty()) {
+            log.info("任务 {} debug_url: {}", taskId, task.getDebugUrl());
+        }
+
         return Result.success(task);
     }
 }

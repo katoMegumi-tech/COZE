@@ -32,37 +32,43 @@ public class AsyncWorkflowService {
         log.info("异步任务开始执行，taskId: {}, 线程: {}", taskId, Thread.currentThread().getName());
 
         
+        String debugUrl = null;
         try {
             // 更新状态为处理中
             taskManager.updateTask(taskId, "PROCESSING", 10, "正在生成视频...");
-            
+
             // 执行工作流
             CozeWorkflowResponse response = cozeWorkflowService.runWorkflow(request);
-            
+
+            // 获取 debugUrl
+            if (response.getData() != null) {
+                debugUrl = response.getData().getDebugUrl();
+            }
+
             // 更新进度
             taskManager.updateTask(taskId, "PROCESSING", 80, "视频生成中...");
-            
+
             // 处理结果
-            if (response.getData() != null && response.getData().getVideoUrls() != null 
+            if (response.getData() != null && response.getData().getVideoUrls() != null
                 && !response.getData().getVideoUrls().isEmpty()) {
-                
+
                 if (response.getData().getErrorMessage() != null) {
-                    taskManager.failTask(taskId, response.getData().getErrorMessage());
+                    taskManager.failTask(taskId, response.getData().getErrorMessage(), debugUrl);
                 } else {
-                    taskManager.completeTask(taskId, response.getData().getVideoUrls());
+                    taskManager.completeTask(taskId, response.getData().getVideoUrls(), debugUrl);
                     log.info("任务 {} 完成，生成 {} 个视频", taskId, response.getData().getVideoUrls().size());
                 }
             } else {
-                String errorMsg = response.getData() != null && response.getData().getErrorMessage() != null 
-                    ? response.getData().getErrorMessage() 
+                String errorMsg = response.getData() != null && response.getData().getErrorMessage() != null
+                    ? response.getData().getErrorMessage()
                     : "生成失败";
-                taskManager.failTask(taskId, errorMsg);
+                taskManager.failTask(taskId, errorMsg, debugUrl);
             }
-            
+
         } catch (Exception e) {
             String errorDetail = String.format("任务 %s 执行失败: %s", taskId, e.getMessage());
             log.error(errorDetail, e);
-            taskManager.failTask(taskId, errorDetail);
+            taskManager.failTask(taskId, errorDetail, debugUrl);
         }
     }
 }
