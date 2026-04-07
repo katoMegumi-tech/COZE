@@ -59,7 +59,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter{
         // 检查jwt是否为空
         if (jwt == null) {
             log.info("缺少认证令牌");
-            sendUnauthorizedResponse(response, "缺少认证令牌");
+            sendUnauthorizedResponse(response, "缺少认证令牌，请重新登录");
             return;
         }
 
