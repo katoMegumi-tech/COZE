@@ -60,8 +60,9 @@ public class AsyncWorkflowService {
             }
             
         } catch (Exception e) {
-            log.error("任务 {} 执行失败", taskId, e);
-            taskManager.failTask(taskId, e.getMessage());
+            String errorDetail = String.format("任务 %s 执行失败: %s", taskId, e.getMessage());
+            log.error(errorDetail, e);
+            taskManager.failTask(taskId, errorDetail);
         }
     }
 }
