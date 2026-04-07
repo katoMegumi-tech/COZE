@@ -16,7 +16,7 @@ import java.util.List;
 public class CozeWorkflowRequest {
 
     @Schema(description = "档位选择：std-标准质量(25积分/秒)，premium-高级质量(30积分/秒)", example = "std", allowableValues = {"std", "premium"})
-//    @NotBlank(message = "档位选择不能为空")
+    @NotBlank(message = "档位选择不能为空")
     private String gearSelection;
 
     @Schema(description = "图片ID列表")
