@@ -142,11 +142,9 @@ public class CozeWorkflowServiceImpl implements CozeWorkflowService {
     private void pollRunHistoryUntilDone(String workflowId, String executeId,
             CozeWorkflowResponse.WorkflowData workflowData, StringBuilder debugBuilder) throws Exception {
 
-        long timeoutMillis = Duration.ofMinutes(cozeConfig.getTimeoutMinutes()).toMillis();
-        long start = System.currentTimeMillis();
         long intervalMillis = 2000L;
 
-        while (System.currentTimeMillis() - start < timeoutMillis) {
+        while (true) {
             JsonNode historyResp = webClient.get()
                     .uri("/v1/workflows/{workflow_id}/run_histories/{execute_id}", workflowId, executeId)
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + cozeConfig.getToken())
@@ -201,9 +199,6 @@ public class CozeWorkflowServiceImpl implements CozeWorkflowService {
 
             Thread.sleep(intervalMillis);
         }
-
-        workflowData.setStatus("TIMEOUT");
-        throw new RuntimeException("工作流执行超时，execute_id=" + executeId);
     }
 
     private void parseOutputToVideoUrls(String outputText, CozeWorkflowResponse.WorkflowData workflowData) {
