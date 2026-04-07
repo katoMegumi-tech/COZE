@@ -56,6 +56,7 @@ public class CozeWorkflowController {
     public Result<Map<String, String>> runWorkflowAsync(@Valid @RequestBody CozeWorkflowRequest request) {
         
         log.info("========== 收到前端请求（异步） ==========");
+        log.info("gearSelection: {}", request.getGearSelection());
         log.info("productName: {}", request.getProductName());
         log.info("productDesc: {}", request.getProductDesc());
         log.info("productFeatures: {}", request.getProductFeatures());
@@ -72,9 +73,11 @@ public class CozeWorkflowController {
 
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
 
+        int point = request.getGearSelection().equals("std") ? 25 : 30;
+
         userPointsLogService.updateUserPoints(
                 username,
-                VIDEO_PREMIUM.getPoints() * request.getVideoLength(),
+                point * request.getVideoLength(),
                 VIDEO_PREMIUM.getDesc()
         );
 
@@ -102,6 +105,7 @@ public class CozeWorkflowController {
         if (task == null) {
             return Result.error("任务不存在");
         }
+
         return Result.success(task);
     }
 }
