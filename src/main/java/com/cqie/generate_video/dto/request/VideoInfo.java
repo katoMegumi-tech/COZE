@@ -13,6 +13,9 @@ public class VideoInfo {
     @Schema(description = "视频ID", example = "7624453729957494790")
     private String id;
 
+    @Schema(description = "视频URL", example = "https://example.com/video.mp4")
+    private String url;
+
     @Schema(description = "文件大小（字节）", example = "13345304")
     private Long bytes;
 
