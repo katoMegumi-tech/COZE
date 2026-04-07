@@ -53,8 +53,7 @@ public class CozeWorkflowServiceImpl implements CozeWorkflowService {
         String workflowId = cozeConfig.getWorkflowId();
 
         // 获取超时时间，确保有默认值
-        int timeoutMinutes = (cozeConfig.getTimeoutMinutes() != null && cozeConfig.getTimeoutMinutes() > 0)
-                ? cozeConfig.getTimeoutMinutes() : 15;
+        int timeoutMinutes = cozeConfig.getTimeoutMinutes();
 
         log.info("开始运行工作流，workflow_id: {}, gearSelection: {}, productName: {}, timeout: {} 分钟",
             workflowId, request.getGearSelection(), request.getProductName(), timeoutMinutes);
