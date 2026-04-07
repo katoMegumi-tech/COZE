@@ -53,7 +53,6 @@ coze:
   base-url: https://api.coze.cn
   workflow-id: "7621433301101887522"
   copywriting-workflow-id: "7620722682200358922"
-  timeout-minutes: 1
 
 kling:
   access-key: "AKFJ4PFmhLFM8GPtTRDDapyPfge4nfgt"
