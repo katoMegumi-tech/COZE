@@ -52,14 +52,27 @@ public class CozeWorkflowServiceImpl implements CozeWorkflowService {
         // 使用配置文件中的 workflow_id
         String workflowId = cozeConfig.getWorkflowId();
 
+        // 获取超时时间，确保有默认值
+        int timeoutMinutes = (cozeConfig.getTimeoutMinutes() != null && cozeConfig.getTimeoutMinutes() > 0)
+                ? cozeConfig.getTimeoutMinutes() : 15;
+
         log.info("开始运行工作流，workflow_id: {}, gearSelection: {}, productName: {}, timeout: {} 分钟",
-            workflowId, request.getGearSelection(), request.getProductName(), cozeConfig.getTimeoutMinutes());
+            workflowId, request.getGearSelection(), request.getProductName(), timeoutMinutes);
 
         Map<String, Object> parameters = buildParameters(request);
 
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("workflow_id", workflowId);
         requestBody.put("parameters", parameters);
+
+        // 打印完整请求体
+        try {
+            log.info("========== Coze API 请求体 ==========");
+            log.info(objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(requestBody));
+            log.info("======================================");
+        } catch (Exception e) {
+            log.warn("请求体序列化失败", e);
+        }
 
         StringBuilder fullResponseBuilder = new StringBuilder();
         AtomicReference<String> doneData = new AtomicReference<>();
@@ -86,7 +99,7 @@ public class CozeWorkflowServiceImpl implements CozeWorkflowService {
                         parseSseChunk(chunk, doneData, errorData, hasMessage, workflowData);
                     })
                     .doOnError(e -> log.error("SSE 流错误：{}", e.getMessage()))
-                    .blockLast(Duration.ofMinutes(cozeConfig.getTimeoutMinutes()));
+                    .blockLast(Duration.ofMinutes(timeoutMinutes));
 
         } catch (WebClientResponseException e) {
             String errorBody = e.getResponseBodyAsString();
