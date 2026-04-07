@@ -1,9 +1,6 @@
 package com.cqie.generate_video.service.impl;
 
-import com.cqie.admin.common.exception.ClientException;
-import com.cqie.admin.service.UserPointsLogService;
 import com.cqie.generate_video.config.CozeConfig;
-import com.cqie.generate_video.constant.PointsConsumeEnum;
 import com.cqie.generate_video.dto.request.CozeWorkflowRequest;
 import com.cqie.generate_video.dto.response.CozeWorkflowResponse;
 import com.cqie.generate_video.service.CozeWorkflowService;
@@ -11,18 +8,17 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
-import reactor.core.publisher.Flux;
 
 import java.time.Duration;
-import java.util.*;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Coze 工作流服务实现
@@ -31,299 +27,332 @@ import java.util.stream.Collectors;
 public class CozeWorkflowServiceImpl implements CozeWorkflowService {
 
     private static final Logger log = LoggerFactory.getLogger(CozeWorkflowServiceImpl.class);
-    
+
     private final CozeConfig cozeConfig;
     private final WebClient webClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final UserPointsLogService userPointsLogService;
 
-    public CozeWorkflowServiceImpl(CozeConfig cozeConfig, UserPointsLogService userPointsLogService) {
+    public CozeWorkflowServiceImpl(CozeConfig cozeConfig) {
         this.cozeConfig = cozeConfig;
-        this.userPointsLogService = userPointsLogService;
         this.webClient = WebClient.builder()
                 .baseUrl(cozeConfig.getBaseUrl())
                 .build();
     }
 
-    @Transactional(rollbackFor = Exception.class)
     @Override
     public CozeWorkflowResponse runWorkflow(CozeWorkflowRequest request) {
 
-        // 使用配置文件中的 workflow_id
         String workflowId = cozeConfig.getWorkflowId();
-
-        // 获取超时时间，确保有默认值
-        int timeoutMinutes = cozeConfig.getTimeoutMinutes();
-
-        log.info("开始运行工作流，workflow_id: {}, gearSelection: {}, productName: {}, timeout: {} 分钟",
-            workflowId, request.getGearSelection(), request.getProductName(), timeoutMinutes);
+        log.info("开始异步运行工作流，workflow_id: {}, timeout: {} 分钟",
+                workflowId, cozeConfig.getTimeoutMinutes());
 
         Map<String, Object> parameters = buildParameters(request);
-
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("workflow_id", workflowId);
         requestBody.put("parameters", parameters);
-
-        // 打印完整请求体
-        try {
-            log.info("========== Coze API 请求体 ==========");
-            log.info(objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(requestBody));
-            log.info("======================================");
-        } catch (Exception e) {
-            log.warn("请求体序列化失败", e);
-        }
-
-        StringBuilder fullResponseBuilder = new StringBuilder();
-        AtomicReference<String> doneData = new AtomicReference<>();
-        AtomicReference<String> errorData = new AtomicReference<>();
-        AtomicReference<Boolean> hasMessage = new AtomicReference<>(false);
+        requestBody.put("is_async", true);
 
         CozeWorkflowResponse response = new CozeWorkflowResponse();
         CozeWorkflowResponse.WorkflowData workflowData = new CozeWorkflowResponse.WorkflowData();
+        StringBuilder debugBuilder = new StringBuilder();
 
         try {
-            Flux<String> stream = webClient.post()
-                    .uri("/v1/workflow/stream_run")
-                    .header("Authorization", "Bearer " + cozeConfig.getToken())
-                    .header("Content-Type", "application/json")
+            JsonNode runResp = webClient.post()
+                    .uri("/v1/workflow/run")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + cozeConfig.getToken())
+                    .header(HttpHeaders.CONTENT_TYPE, "application/json")
                     .bodyValue(requestBody)
                     .retrieve()
-                    .bodyToFlux(String.class);
+                    .bodyToMono(JsonNode.class)
+                    .block(Duration.ofSeconds(30));
 
-            stream
-                    .doOnNext(chunk -> {
-                        if (chunk != null && !chunk.trim().isEmpty()) {
-                            fullResponseBuilder.append(chunk).append("\n");
-                        }
-                        parseSseChunk(chunk, doneData, errorData, hasMessage, workflowData);
-                    })
-                    .doOnError(e -> log.error("SSE 流错误：{}", e.getMessage()))
-                    .blockLast(Duration.ofMinutes(timeoutMinutes));
+            debugBuilder.append("run_response=").append(runResp).append("\n");
 
-        } catch (WebClientResponseException e) {
-            String errorBody = e.getResponseBodyAsString();
-            log.error("调用 Coze API 失败，状态码: {}，响应: {}", e.getStatusCode(), errorBody, e);
-            throw new RuntimeException("调用 Coze API 失败：" + e.getStatusCode() + "，" + errorBody, e);
-        } catch (Exception e) {
-            log.error("调用异常：{}", e.getMessage(), e);
-            throw new RuntimeException("调用异常：" + e.getMessage(), e);
-        }
+            if (runResp == null) {
+                throw new RuntimeException("Coze run 接口返回为空");
+            }
+            if (runResp.path("code").asInt(-1) != 0) {
+                throw new RuntimeException("Coze run 接口失败: " + runResp.path("msg").asText("unknown")
+                        + ", run_response=" + runResp);
+            }
 
-        // 设置调试数据
-        workflowData.setDebugData(fullResponseBuilder.toString());
+            String executeId = extractExecuteId(runResp);
+            if (executeId == null || executeId.isEmpty()) {
+                throw new RuntimeException("Coze run 接口未返回 execute_id, run_response=" + runResp);
+            }
 
-        // 赋值 firstVideoUrl
-        if (workflowData.getVideoUrls() != null && !workflowData.getVideoUrls().isEmpty()) {
-            workflowData.setFirstVideoUrl(workflowData.getVideoUrls().get(0));
-        }
+            log.info("异步任务已提交，execute_id={}", executeId);
+            pollRunHistoryUntilDone(workflowId, executeId, workflowData, debugBuilder);
 
-        // 处理结果
-        if (errorData.get() != null) {
-            response.setCode(500);
-            response.setMessage(errorData.get());
-            workflowData.setStatus("FAILED");
-            workflowData.setErrorMessage(errorData.get());
-            log.error("工作流执行失败：{}", errorData.get());
-        } else {
+            if (workflowData.getVideoUrls() != null && !workflowData.getVideoUrls().isEmpty()) {
+                workflowData.setFirstVideoUrl(workflowData.getVideoUrls().get(0));
+            }
+
             response.setCode(0);
             response.setMessage("SUCCESS");
-            workflowData.setStatus(hasMessage.get() ? "COMPLETED" : "NO_RESPONSE");
-            int videoCount = workflowData.getVideoUrls() != null ? workflowData.getVideoUrls().size() : 0;
-            log.info("工作流执行成功，生成 {} 个视频", videoCount);
-            if (videoCount == 0) {
-                log.warn("未提取到视频 URL，完整响应内容：\n{}", fullResponseBuilder.toString());
+            if (workflowData.getStatus() == null) {
+                workflowData.setStatus("COMPLETED");
             }
+
+            log.info("工作流执行成功，生成 {} 个视频",
+                    workflowData.getVideoUrls() != null ? workflowData.getVideoUrls().size() : 0);
+        } catch (WebClientResponseException e) {
+            log.error("调用 Coze API 失败：{}", e.getStatusCode(), e);
+            response.setCode(500);
+            response.setMessage("调用 Coze API 失败：" + e.getStatusCode());
+            workflowData.setStatus("FAILED");
+            workflowData.setErrorMessage(e.getResponseBodyAsString());
+        } catch (Exception e) {
+            log.error("调用异常：{}", e.getMessage(), e);
+            response.setCode(500);
+            response.setMessage("调用异常：" + e.getMessage());
+            workflowData.setStatus("FAILED");
+            workflowData.setErrorMessage(e.getMessage());
         }
 
+        workflowData.setDebugData(debugBuilder.toString());
         response.setData(workflowData);
         return response;
     }
 
-    /**
-     * 解析 SSE 流数据
-     */
-    private void parseSseChunk(String chunk,
-                               AtomicReference<String> doneData,
-                               AtomicReference<String> errorData,
-                               AtomicReference<Boolean> hasMessage,
-                               CozeWorkflowResponse.WorkflowData workflowData) {
+    private String extractExecuteId(JsonNode runResp) {
+        // Coze async run 官方返回：execute_id 位于顶层
+        String id = runResp.path("execute_id").asText(null);
+        if (id != null && !id.isEmpty() && !"null".equalsIgnoreCase(id)) {
+            return id;
+        }
 
-        if (chunk == null || chunk.trim().isEmpty()) return;
+        // 兼容历史/其他结构
+        id = runResp.path("data").path("execute_id").asText(null);
+        if (id != null && !id.isEmpty() && !"null".equalsIgnoreCase(id)) {
+            return id;
+        }
 
-        String[] lines = chunk.split("\n");
+        JsonNode data = runResp.path("data");
+        if (data.isArray() && !data.isEmpty()) {
+            id = data.get(0).path("execute_id").asText(null);
+            if (id != null && !id.isEmpty() && !"null".equalsIgnoreCase(id)) {
+                return id;
+            }
+        }
 
-        for (String line : lines) {
-            line = line.trim();
-            if (line.isEmpty()) continue;
+        return null;
+    }
 
-            // 兼容 SSE: data: 前缀
-            if (line.startsWith("data:")) {
-                line = line.substring(5).trim();
+    private void pollRunHistoryUntilDone(String workflowId, String executeId,
+            CozeWorkflowResponse.WorkflowData workflowData, StringBuilder debugBuilder) throws Exception {
+
+        long timeoutMillis = Duration.ofMinutes(cozeConfig.getTimeoutMinutes()).toMillis();
+        long start = System.currentTimeMillis();
+        long intervalMillis = 2000L;
+
+        while (System.currentTimeMillis() - start < timeoutMillis) {
+            JsonNode historyResp = webClient.get()
+                    .uri("/v1/workflows/{workflow_id}/run_histories/{execute_id}", workflowId, executeId)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + cozeConfig.getToken())
+                    .header(HttpHeaders.CONTENT_TYPE, "application/json")
+                    .retrieve()
+                    .bodyToMono(JsonNode.class)
+                    .block(Duration.ofSeconds(30));
+
+            debugBuilder.append("history_response@")
+                    .append(Instant.now().getEpochSecond())
+                    .append("=")
+                    .append(historyResp)
+                    .append("\n");
+
+            if (historyResp == null) {
+                Thread.sleep(intervalMillis);
+                continue;
             }
 
-            try {
-                JsonNode jsonNode = objectMapper.readTree(line);
+            if (historyResp.path("code").asInt(-1) != 0) {
+                String msg = historyResp.path("msg").asText("unknown");
+                throw new RuntimeException("Coze history 接口失败: " + msg);
+            }
 
-                // 错误处理
-                if (jsonNode.has("error_message")) {
-                    errorData.set(jsonNode.get("error_message").asText());
-                    continue;
+            JsonNode dataArr = historyResp.path("data");
+            if (!dataArr.isArray() || dataArr.isEmpty()) {
+                Thread.sleep(intervalMillis);
+                continue;
+            }
+
+            JsonNode history = dataArr.get(0);
+            String status = history.path("execute_status").asText("");
+
+            if ("Running".equalsIgnoreCase(status)) {
+                workflowData.setStatus("RUNNING");
+                Thread.sleep(intervalMillis);
+                continue;
+            }
+
+            if ("Fail".equalsIgnoreCase(status)) {
+                String err = history.path("error_message").asText("工作流执行失败");
+                workflowData.setStatus("FAILED");
+                workflowData.setErrorMessage(err);
+                throw new RuntimeException(err);
+            }
+
+            if ("Success".equalsIgnoreCase(status)) {
+                parseOutputToVideoUrls(history.path("output").asText(""), workflowData);
+                workflowData.setStatus("COMPLETED");
+                return;
+            }
+
+            Thread.sleep(intervalMillis);
+        }
+
+        workflowData.setStatus("TIMEOUT");
+        throw new RuntimeException("工作流执行超时，execute_id=" + executeId);
+    }
+
+    private void parseOutputToVideoUrls(String outputText, CozeWorkflowResponse.WorkflowData workflowData) {
+        if (outputText == null || outputText.trim().isEmpty()) {
+            return;
+        }
+
+        try {
+            JsonNode outputRoot = objectMapper.readTree(outputText);
+
+            JsonNode outputNode = outputRoot.path("Output");
+            if (!outputNode.isMissingNode()) {
+                if (outputNode.isTextual()) {
+                    tryExtractVideoFromTextJson(outputNode.asText(), workflowData);
+                } else {
+                    tryExtractVideoFromNode(outputNode, workflowData);
                 }
+            }
 
-                // 解析 content
-                if (jsonNode.has("content")) {
-                    String content = jsonNode.get("content").asText();
-                    hasMessage.set(true);
+            outputRoot.fields().forEachRemaining(entry -> {
+                JsonNode node = entry.getValue();
+                if (node.isTextual()) {
+                    tryExtractVideoFromTextJson(node.asText(), workflowData);
+                } else {
+                    tryExtractVideoFromNode(node, workflowData);
+                }
+            });
+        } catch (Exception e) {
+            log.warn("解析 output 失败: {}", e.getMessage());
+        }
+    }
 
-                    if (content == null || content.equals("{}")) continue;
+    private void tryExtractVideoFromTextJson(String text, CozeWorkflowResponse.WorkflowData workflowData) {
+        if (text == null || text.trim().isEmpty()) {
+            return;
+        }
 
-                    log.debug("解析 content: {}", content);
+        try {
+            JsonNode node = objectMapper.readTree(text);
+            tryExtractVideoFromNode(node, workflowData);
+        } catch (Exception ignore) {
+        }
+    }
 
-                    try {
-                        JsonNode contentJson = objectMapper.readTree(content);
+    private void tryExtractVideoFromNode(JsonNode node, CozeWorkflowResponse.WorkflowData workflowData) {
+        if (node == null || node.isNull()) {
+            return;
+        }
 
-                        // 尝试从 result 字段获取视频 URL（Coze 工作流返回格式）
-                        JsonNode resultNode = contentJson.get("result");
-                        if (resultNode != null && resultNode.isArray()) {
-                            if (workflowData.getVideoUrls() == null) {
-                                workflowData.setVideoUrls(new ArrayList<>());
-                            }
-                            for (JsonNode urlNode : resultNode) {
-                                String url = urlNode.asText();
-                                if (!url.isEmpty()) {
-                                    workflowData.getVideoUrls().add(url);
-                                    log.info("从 result 获取到视频 URL: {}", url);
-                                }
-                            }
-                        }
+        JsonNode videoNode = node.get("video");
+        if (videoNode == null) {
+            videoNode = node.get("video_url");
+        }
 
-                        // 兼容 video/videos 字段
-                        JsonNode videoNode = contentJson.get("video");
-                        if (videoNode != null) {
-                            addVideoUrls(videoNode, workflowData, "video");
-                        }
-                        JsonNode videosNode = contentJson.get("videos");
-                        if (videosNode != null) {
-                            addVideoUrls(videosNode, workflowData, "videos");
-                        }
+        if (videoNode != null) {
+            if (workflowData.getVideoUrls() == null) {
+                workflowData.setVideoUrls(new ArrayList<>());
+            }
 
-                        // 如果 content 本身是 URL（直接返回视频链接）
-                        if (content.startsWith("http") && (workflowData.getVideoUrls() == null || workflowData.getVideoUrls().isEmpty())) {
-                            if (workflowData.getVideoUrls() == null) {
-                                workflowData.setVideoUrls(new ArrayList<>());
-                            }
-                            workflowData.getVideoUrls().add(content);
-                            log.info("从 content 直接获取到视频 URL: {}", content);
-                        }
-                    } catch (Exception e) {
-                        log.warn("解析 content JSON 失败: {}, 错误: {}", content, e.getMessage());
-                        // 如果 content 不是 JSON，可能是直接的 URL
-                        if (content.startsWith("http")) {
-                            if (workflowData.getVideoUrls() == null) {
-                                workflowData.setVideoUrls(new ArrayList<>());
-                            }
-                            workflowData.getVideoUrls().add(content);
-                            log.info("从 content 获取到视频 URL: {}", content);
-                        }
+            if (videoNode.isTextual()) {
+                String url = videoNode.asText();
+                if (!url.isEmpty()) {
+                    addVideoUrl(workflowData, url);
+                }
+            } else if (videoNode.isArray()) {
+                for (JsonNode v : videoNode) {
+                    String url = v.asText();
+                    if (!url.isEmpty()) {
+                        addVideoUrl(workflowData, url);
                     }
                 }
+            }
+        }
 
-                // 结束节点
-                if (jsonNode.has("node_is_finish") && jsonNode.get("node_is_finish").asBoolean()) {
-                    log.debug("节点执行完成");
+        if (node.isObject()) {
+            node.fields().forEachRemaining(e -> tryExtractVideoFromNode(e.getValue(), workflowData));
+        } else if (node.isArray()) {
+            node.forEach(n -> tryExtractVideoFromNode(n, workflowData));
+        } else if (node.isTextual()) {
+            String text = node.asText();
+            if (text.startsWith("http://") || text.startsWith("https://")) {
+                if (workflowData.getVideoUrls() == null) {
+                    workflowData.setVideoUrls(new ArrayList<>());
                 }
-
-            } catch (Exception e) {
-                log.warn("JSON 解析失败: {}", line);
+                addVideoUrl(workflowData, text);
             }
         }
     }
 
-    /**
-     * 添加视频 URL 到列表（辅助方法）
-     */
-    private void addVideoUrls(JsonNode node, CozeWorkflowResponse.WorkflowData workflowData, String fieldName) {
-        if (workflowData.getVideoUrls() == null) {
-            workflowData.setVideoUrls(new ArrayList<>());
+    private void addVideoUrl(CozeWorkflowResponse.WorkflowData workflowData, String url) {
+        if (workflowData.getVideoUrls().contains(url)) {
+            return;
         }
 
-        // 字符串类型
-        if (node.isTextual()) {
-            String url = node.asText();
-            if (!url.isEmpty()) {
-                workflowData.getVideoUrls().add(url);
-                log.info("从 {} 字段获取到视频 URL: {}", fieldName, url);
-            }
-        }
-        // 数组类型
-        else if (node.isArray()) {
-            for (JsonNode v : node) {
-                String url = v.asText();
-                if (!url.isEmpty()) {
-                    workflowData.getVideoUrls().add(url);
-                    log.info("从 {} 数组获取到视频 URL: {}", fieldName, url);
-                }
-            }
-        }
+        workflowData.getVideoUrls().add(url);
+        log.info("获取到视频 URL: {}", url);
     }
 
     /**
      * 构建工作流参数
      */
     private Map<String, Object> buildParameters(CozeWorkflowRequest request) {
-        Map<String, Object> params = new LinkedHashMap<>();
+        Map<String, Object> params = new HashMap<>();
 
-        // 档位选择
-        params.put("gear_selection", request.getGearSelection() != null ? request.getGearSelection() : "std");
-
-        // 图片列表 - 直接使用原始 URL（与官网示例保持一致）
+        // image 参数需要是 JSON 字符串格式: {"file_id":"xxx"}
         if (request.getImages() != null && !request.getImages().isEmpty()) {
             List<String> imageParams = new ArrayList<>();
-            for (String imageId : request.getImages()) {
-                // 注意转义双引号，实际字符串内容是 {"file_id": "7625842253768032298"}
-                imageParams.add("{\"file_id\": \"" + imageId + "\"}");
+            for (String item : request.getImages()) {
+                if (item.startsWith("http://") || item.startsWith("https://")) {
+                    imageParams.add(item);          // 直接使用 URL
+                } else {
+                    imageParams.add("{\"file_id\": \"" + item + "\"}"); // 包装 file_id
+                }
             }
             params.put("images", imageParams);
         } else {
             params.put("images", new ArrayList<>());
         }
 
-        // 视频列表 - 直接使用原始 URL
-        if (request.getVideos() != null && !request.getVideos().isEmpty()) {
-            List<String> videoParams = new ArrayList<>();
-            for (String videoId : request.getVideos()) {
-                videoParams.add("{\"file_id\": \"" + videoId + "\"}");
-            }
-            params.put("videos", videoParams);
-        } else {
-            params.put("videos", new ArrayList<>());
+        if (request.getProductName() != null)
+            params.put("product_name", request.getProductName());
+        if (request.getProductDesc() != null)
+            params.put("product_desc", request.getProductDesc());
+        if (request.getProductFeatures() != null)
+            params.put("product_features", request.getProductFeatures());
+        if (request.getProductPrice() != null)
+            params.put("product_price", request.getProductPrice());
+
+        // 设置默认值
+        params.put("video_aspect_ratio",
+                request.getVideoAspectRatio() != null ? request.getVideoAspectRatio() : "16:9");
+        params.put("video_length", request.getVideoLength() != null ? request.getVideoLength() : 10);
+        params.put("video_num", request.getVideoNum() != null ? request.getVideoNum() : 1);
+        params.put("video_resolution", request.getVideoResolution() != null ? request.getVideoResolution() : "720P");
+        // videoSubtitle 默认不传（无字幕）
+        if (request.getVideoSubtitle() != null && request.getVideoSubtitle()) {
+            params.put("video_subtitle", true);
         }
 
-        // 产品信息
-        if (request.getProductName() != null) params.put("product_name", request.getProductName());
-        if (request.getProductDesc() != null) params.put("product_desc", request.getProductDesc());
-        if (request.getProductFeatures() != null) params.put("product_features", request.getProductFeatures());
-        if (request.getProductPrice() != null) params.put("product_price", request.getProductPrice());
-
-        // 视频参数
-        params.put("video_aspect_ratio", request.getVideoAspectRatio() != null ? request.getVideoAspectRatio() : "16:9");
-        params.put("video_length", request.getVideoLength() != null ? request.getVideoLength() : 10);
-        if (request.getVideoScene() != null) params.put("video_scene", request.getVideoScene());
-        if (request.getVideoStyle() != null) params.put("video_style", request.getVideoStyle());
-
-        // 新增参数
-        if (request.getVideoNum() != null) params.put("video_num", request.getVideoNum());
-        if (request.getVideoResolution() != null) params.put("video_resolution", request.getVideoResolution());
-        if (request.getVideoSubtitle() != null) params.put("video_subtitle", request.getVideoSubtitle());
+        if (request.getVideoScene() != null)
+            params.put("video_scene", request.getVideoScene());
+        if (request.getVideoStyle() != null)
+            params.put("video_style", request.getVideoStyle());
 
         log.info("========== 传给 Coze 工作流的参数 ==========");
-        try {
-            log.info(objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(params));
-        } catch (Exception e) {
-            log.warn("参数序列化失败", e);
-        }
+        params.forEach((key, value) -> log.info("{}: {}", key, value));
         log.info("==========================================");
 
         return params;
     }
 }
+
