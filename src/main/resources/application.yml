@@ -74,7 +74,7 @@ wechat:
     # 商户API密钥
     api-key: your_api_key_here
     # 支付结果通知地址(需要替换为实际的外网可访问地址)
-    notify-url: https://your-domain.com/api/payment/notify
+    notify-url: http://114.117.193.166/api/payment/notify
     # 交易类型: JSAPI-小程序支付
     trade-type: JSAPI
 
