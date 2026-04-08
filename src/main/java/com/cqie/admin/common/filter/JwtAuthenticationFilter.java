@@ -66,7 +66,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter{
 
         // 检查令牌是否有效
         if (!jwtUtil.validateToken(jwt)) {
-            log.info("令牌无效或已过期");
+            log.info("令牌无效或已过期: {}", jwt);
             sendUnauthorizedResponse(response, "令牌无效或已过期");
             return;
         }
