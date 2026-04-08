@@ -64,7 +64,6 @@ public class PaymentServiceImpl implements PaymentService {
             throw new ClientException("500", "无效的产品类型");
         }
 
-        // 根据产品类型获取价格和商品描述
         int price;
         String body;
         switch (productType) {
@@ -77,14 +76,10 @@ public class PaymentServiceImpl implements PaymentService {
                 body = "开通" + memberLevel.getName();
                 break;
             case POINTS_PACKAGE:
-                // 检查用户是否可以购买加油包
                 if (!userMembershipService.getCurrentLevel(userDO.getUsername()).canBuyExtraPackage()) {
                     throw new ClientException("500", "体验会员无法购买积分加油包");
                 }
-                PointsPackageEnum pkg = PointsPackageEnum.valueOf(request.getProductCode());
-                if (pkg == null) {
-                    throw new ClientException("500", "无效的加油包类型");
-                }
+                PointsPackageEnum pkg = parsePointsPackage(request.getProductCode());
                 price = pkg.getPrice();
                 body = "购买" + pkg.getName();
                 break;
@@ -149,7 +144,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .status(0) // 待支付
                 .prepayId(prepayId)
                 .productType(request.getProductType())
-                .productCode(request.getProductCode())
+                .productCode(normalizeProductCode(productType, request.getProductCode()))
                 .build();
         paymentOrderMapper.insert(order);
 
@@ -308,7 +303,6 @@ public class PaymentServiceImpl implements PaymentService {
                     userMembershipService.buyMember(username, memberLevel.getCode());
                     break;
                 case POINTS_PACKAGE:
-                    // 固定发放加油包积分
                     userPointsAccountService.addExtraPoints(username, ExtraPackageConstant.POINTS);
                     break;
                 default:
@@ -319,7 +313,16 @@ public class PaymentServiceImpl implements PaymentService {
         }
     }
 
-    // 兼容 experience/EXPERIENCE 等历史编码，统一映射到 TRIAL
+    private String normalizeProductCode(ProductTypeEnum productType, String rawCode) {
+        if (productType == ProductTypeEnum.MEMBER) {
+            return parseMemberLevel(rawCode).name();
+        }
+        if (productType == ProductTypeEnum.POINTS_PACKAGE) {
+            return parsePointsPackage(rawCode).name();
+        }
+        return rawCode;
+    }
+
     private MemberLevel parseMemberLevel(String rawCode) {
         if (rawCode == null || rawCode.trim().isEmpty()) {
             throw new ClientException("500", "无效的会员等级");
@@ -332,6 +335,17 @@ public class PaymentServiceImpl implements PaymentService {
             return MemberLevel.valueOf(code);
         } catch (IllegalArgumentException ex) {
             throw new ClientException("500", "无效的会员等级");
+        }
+    }
+
+    private PointsPackageEnum parsePointsPackage(String rawCode) {
+        if (rawCode == null || rawCode.trim().isEmpty()) {
+            throw new ClientException("500", "无效的加油包类型");
+        }
+        try {
+            return PointsPackageEnum.valueOf(rawCode.trim().toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            throw new ClientException("500", "无效的加油包类型");
         }
     }
 
