@@ -5,6 +5,7 @@ import com.cqie.admin.dto.request.UserLoginRequest;
 import com.cqie.admin.dto.request.UserRegisterRequest;
 import com.cqie.admin.dto.request.UserUpdateRequest;
 import com.cqie.admin.dto.request.WechatLoginRequest;
+import com.cqie.admin.dto.response.UserGetUserResponse;
 import com.cqie.admin.dto.response.UserLoginResponse;
 import com.cqie.admin.dto.response.UserUpdateResponse;
 import com.cqie.admin.dto.response.WechatLoginResponse;
@@ -42,7 +43,7 @@ public class UserController {
     @Operation(summary = "获取当前用户信息", description = "获取当前登录用户的详细信息")
     @PreAuthorize("hasAuthority('user:getInfo')")
     @PostMapping("/getUserByUsername")
-    public Result<Object> getUserByUsername() {
+    public Result<UserGetUserResponse> getUserByUsername() {
         return Result.success(userService.getUserByUsername());
     }
 
