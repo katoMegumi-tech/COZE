@@ -1,5 +1,6 @@
 package com.cqie.generate_video.controller;
 
+import com.cqie.admin.service.UserPointsAccountService;
 import com.cqie.admin.service.UserPointsLogService;
 import com.cqie.generate_video.dto.request.CopywritingRequest;
 import com.cqie.generate_video.dto.response.CopywritingResponse;
@@ -34,7 +35,7 @@ public class CopywritingController {
     private final TaskManager taskManager;
 
     @Autowired
-    private UserPointsLogService userPointsLogService;
+    private UserPointsAccountService userPointsAccountService;
 
     public CopywritingController(CopywritingService copywritingService, TaskManager taskManager) {
         this.copywritingService = copywritingService;
@@ -93,10 +94,10 @@ public class CopywritingController {
         log.info("当前登录用户：{}", username);
         log.info("==========================================");
 
-        userPointsLogService.updateUserPoints(
+        userPointsAccountService.consumePoints(
                 username,
-                XIAOHONGSHU_COPY_GENERATION.getPoints(),
-                XIAOHONGSHU_COPY_GENERATION.getDesc()
+                1,
+                "std"
         );
     
         CopywritingResponse response = copywritingService.generateCopywritingAsync(request);
