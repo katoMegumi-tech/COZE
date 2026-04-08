@@ -26,9 +26,7 @@ public class UserMembershipDO {
 
     private Integer status; // 1:生效中 2:缓冲期 3:彻底失效
 
-    @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 
-    @TableField(fill = FieldFill.INSERT_UPDATE)
     private LocalDateTime updatedAt;
 }
