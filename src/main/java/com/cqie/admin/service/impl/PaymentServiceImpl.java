@@ -2,9 +2,7 @@ package com.cqie.admin.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.cqie.admin.common.config.WechatPayConfig;
-import com.cqie.admin.common.constant.MemberLevelEnum;
-import com.cqie.admin.common.constant.PointsPackageEnum;
-import com.cqie.admin.common.constant.ProductTypeEnum;
+import com.cqie.admin.common.constant.*;
 import com.cqie.admin.common.exception.ClientException;
 import com.cqie.admin.dto.request.PaymentCreateRequest;
 import com.cqie.admin.dto.response.PaymentCreateResponse;
@@ -12,8 +10,9 @@ import com.cqie.admin.entity.PaymentOrderDO;
 import com.cqie.admin.entity.UserDO;
 import com.cqie.admin.mapper.PaymentOrderMapper;
 import com.cqie.admin.mapper.UserMapper;
-import com.cqie.admin.service.MemberService;
 import com.cqie.admin.service.PaymentService;
+import com.cqie.admin.service.UserMembershipService;
+import com.cqie.admin.service.UserPointsAccountService;
 import com.cqie.admin.util.WechatPayUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -44,7 +43,8 @@ public class PaymentServiceImpl implements PaymentService {
     private final WechatPayConfig wechatPayConfig;
     private final PaymentOrderMapper paymentOrderMapper;
     private final UserMapper userMapper;
-    private final MemberService memberService;
+    private final UserMembershipService userMembershipService;
+    private final UserPointsAccountService userPointsAccountService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -69,16 +69,16 @@ public class PaymentServiceImpl implements PaymentService {
         String body;
         switch (productType) {
             case MEMBER:
-                MemberLevelEnum memberLevel = MemberLevelEnum.valueOf(request.getProductCode());
-                if (memberLevel == null || memberLevel == MemberLevelEnum.NORMAL) {
+                MemberLevel memberLevel = parseMemberLevel(request.getProductCode());
+                if (memberLevel == MemberLevel.NONE) {
                     throw new ClientException("500", "无效的会员等级");
                 }
-                price = memberLevel.getPrice();
+                price = (int) Math.round(memberLevel.getMonthlyPrice() * 100);
                 body = "开通" + memberLevel.getName();
                 break;
             case POINTS_PACKAGE:
                 // 检查用户是否可以购买加油包
-                if (!memberService.canPurchasePointsPackage(userDO.getId())) {
+                if (!userMembershipService.getCurrentLevel(userDO.getUsername()).canBuyExtraPackage()) {
                     throw new ClientException("500", "体验会员无法购买积分加油包");
                 }
                 PointsPackageEnum pkg = PointsPackageEnum.valueOf(request.getProductCode());
@@ -291,24 +291,47 @@ public class PaymentServiceImpl implements PaymentService {
                 return;
             }
 
+            UserDO userDO = userMapper.selectById(order.getUserId());
+            if (userDO == null || userDO.getUsername() == null || userDO.getUsername().trim().isEmpty()) {
+                log.error("订单关联用户不存在或username为空, userId={}", order.getUserId());
+                return;
+            }
+            String username = userDO.getUsername();
+
             switch (productType) {
                 case MEMBER:
-                    MemberLevelEnum memberLevel = MemberLevelEnum.valueOf(order.getProductCode());
-                    if (memberLevel != null) {
-                        memberService.openMember(order.getUserId(), memberLevel);
+                    MemberLevel memberLevel = parseMemberLevel(order.getProductCode());
+                    if (memberLevel == MemberLevel.NONE) {
+                        log.error("无效会员产品编码: {}", order.getProductCode());
+                        return;
                     }
+                    userMembershipService.buyMember(username, memberLevel.getCode());
                     break;
                 case POINTS_PACKAGE:
-                    PointsPackageEnum pkg = PointsPackageEnum.valueOf(order.getProductCode());
-                    if (pkg != null) {
-                        memberService.purchasePointsPackage(order.getUserId(), pkg);
-                    }
+                    // 固定发放加油包积分
+                    userPointsAccountService.addExtraPoints(username, ExtraPackageConstant.POINTS);
                     break;
                 default:
                     log.error("不支持的产品类型: {}", productType);
             }
         } catch (Exception e) {
             log.error("处理支付成功业务逻辑失败", e);
+        }
+    }
+
+    // 兼容 experience/EXPERIENCE 等历史编码，统一映射到 TRIAL
+    private MemberLevel parseMemberLevel(String rawCode) {
+        if (rawCode == null || rawCode.trim().isEmpty()) {
+            throw new ClientException("500", "无效的会员等级");
+        }
+        String code = rawCode.trim().toUpperCase();
+        if ("EXPERIENCE".equals(code)) {
+            code = "TRIAL";
+        }
+        try {
+            return MemberLevel.valueOf(code);
+        } catch (IllegalArgumentException ex) {
+            throw new ClientException("500", "无效的会员等级");
         }
     }
 

@@ -16,7 +16,8 @@ public class PublicAPIConstant {
             "/swagger-ui/**", // Swagger UI
             "/swagger-ui.html", // Swagger UI HTML
             "/swagger-resources/**", // Swagger 资源
-            "/webjars/**" // Webjars 资源
+            "/webjars/**", // Webjars 资源
+            "/api/debug/**" // 调试接口（上线前建议删除或加权限控制）
     );
 
     // Spring 路径匹配器（单例，线程安全）
