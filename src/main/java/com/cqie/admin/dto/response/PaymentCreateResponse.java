@@ -1,5 +1,6 @@
 package com.cqie.admin.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
@@ -16,6 +17,7 @@ public class PaymentCreateResponse {
     @Schema(description = "随机字符串", example = "randomString123")
     private String nonceStr;
 
+    @JsonProperty("package")
     @Schema(description = "订单详情扩展字符串，格式：prepay_id=xxx", example = "prepay_id=wx202105041234567890")
     private String packageStr;
 
