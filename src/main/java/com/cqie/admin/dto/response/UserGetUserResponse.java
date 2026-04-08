@@ -1,5 +1,6 @@
 package com.cqie.admin.dto.response;
 
+import com.cqie.admin.entity.UserPointsAccountDO;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
@@ -29,4 +30,8 @@ public class UserGetUserResponse {
     @Schema(description = "用户积分")
     // 用户积分
     private Integer points;
+
+    @Schema(description = "用户积分账户")
+    private UserPointsAccountDO userPointsAccount;
+
 }
