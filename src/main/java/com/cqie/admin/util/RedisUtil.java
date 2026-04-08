@@ -21,7 +21,7 @@ public class RedisUtil {
      * @param expiration 过期时间
      */
     public void setJti(String jti, String username, long expiration) {
-        redisTemplate.opsForValue().set(JTI + ":" + username, jti, expiration, TimeUnit.SECONDS);
+        redisTemplate.opsForValue().set(JTI + ":" + username, jti, expiration, TimeUnit.MINUTES);
     }
 
     /**
