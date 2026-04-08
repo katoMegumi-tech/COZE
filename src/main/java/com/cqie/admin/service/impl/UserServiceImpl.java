@@ -17,8 +17,10 @@ import com.cqie.admin.dto.response.UserUpdateResponse;
 import com.cqie.admin.dto.response.WechatLoginResponse;
 import com.cqie.admin.dto.response.WechatSessionResponse;
 import com.cqie.admin.entity.UserDO;
+import com.cqie.admin.entity.UserPointsAccountDO;
 import com.cqie.admin.entity.UserRoleDO;
 import com.cqie.admin.mapper.UserMapper;
+import com.cqie.admin.mapper.UserPointsAccountMapper;
 import com.cqie.admin.service.UserPointsLogService;
 import com.cqie.admin.service.UserRoleService;
 import com.cqie.admin.service.UserService;
@@ -65,6 +67,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, UserDO> implements 
     private final WechatProperties wechatProperties;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final UserPointsAccountMapper userPointsAccountMapper;
 
     /**
      * 获取当前登录用户名
@@ -89,7 +92,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, UserDO> implements 
             throw new ClientException("500", "用户不存在");
         }
 
-        return BeanUtil.convert(userDO, UserGetUserResponse.class);
+        UserPointsAccountDO userPointsAccountDO = userPointsAccountMapper.selectOne(
+                new LambdaQueryWrapper<UserPointsAccountDO>()
+                        .eq(UserPointsAccountDO::getUsername, username)
+        );
+
+        if (userPointsAccountDO == null) {
+            throw new ClientException("500", "用户积分账户不存在");
+        }
+
+        UserGetUserResponse convert = BeanUtil.convert(userDO, UserGetUserResponse.class);
+        convert.setUserPointsAccount(userPointsAccountDO);
+
+        return convert;
     }
 
     @Override
