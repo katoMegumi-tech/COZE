@@ -1,6 +1,7 @@
 package com.cqie.generate_video.controller;
 
 import com.cqie.admin.common.exception.ClientException;
+import com.cqie.admin.service.UserPointsAccountService;
 import com.cqie.admin.service.UserPointsLogService;
 import com.cqie.generate_video.constant.PointsConsumeEnum;
 import com.cqie.generate_video.dto.request.CozeWorkflowRequest;
@@ -42,6 +43,9 @@ public class CozeWorkflowController {
     @Autowired
     private UserPointsLogService userPointsLogService;
 
+    @Autowired
+    private UserPointsAccountService userPointsAccountService;
+
     public CozeWorkflowController(AsyncWorkflowService asyncWorkflowService, TaskManager taskManager) {
         this.asyncWorkflowService = asyncWorkflowService;
         this.taskManager = taskManager;
@@ -76,12 +80,10 @@ public class CozeWorkflowController {
 
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
 
-        PointsConsumeEnum point = request.getGearSelection().equals("std") ? VIDEO_STANDARD : VIDEO_PREMIUM;
-
-        userPointsLogService.updateUserPoints(
+        userPointsAccountService.consumePoints(
                 username,
-                point.getPoints() * request.getVideoLength(),
-                point.getDesc()
+                request.getVideoLength(),
+                request.getGearSelection()
         );
 
         // 异步执行（通过 Service 调用）
