@@ -12,6 +12,7 @@ public class PublicAPIConstant {
             "/api/admin/user/register", // 注册接口
             "/api/admin/user/wechatLogin", // 登出接口
             "/api/kling/**", //调用可灵视频生成
+            "/api/payment/notify", // 微信支付通知接口
             "/v3/api-docs/**", // Swagger API 文档
             "/swagger-ui/**", // Swagger UI
             "/swagger-ui.html", // Swagger UI HTML
