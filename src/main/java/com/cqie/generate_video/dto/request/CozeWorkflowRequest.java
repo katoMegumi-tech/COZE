@@ -40,9 +40,9 @@ public class CozeWorkflowRequest {
     @Schema(description = "视频宽高比", example = "16:9", allowableValues = {"9:16", "16:9"})
     private String videoAspectRatio;
     
-    @Schema(description = "视频长度（秒）", example = "10", minimum = "5", maximum = "12")
+    @Schema(description = "视频长度（秒）", example = "10", minimum = "5", maximum = "15")
     @Min(value = 5, message = "视频长度最少 5 秒")
-    @Max(value = 12, message = "视频长度最多 12 秒")
+    @Max(value = 15, message = "视频长度最多 15 秒")
     private Integer videoLength;
     
     @Schema(description = "视频场景", example = "厨房")
