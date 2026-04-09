@@ -15,6 +15,9 @@ public class TaskStatusResponse {
     @Schema(description = "任务ID")
     private String taskId;
 
+    @Schema(description = "产品名称")
+    private String productName;
+
     @Schema(description = "任务状态：PENDING(等待中)、PROCESSING(生成中)、COMPLETED(已完成)、FAILED(失败)")
     private String status;
 
