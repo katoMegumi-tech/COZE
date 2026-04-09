@@ -7,5 +7,5 @@ import com.cqie.generate_video.entity.VideoTaskDO;
 public interface VideoTaskService extends IService<VideoTaskDO> {
 
 
-
+    IPage<VideoTaskDO> getVideoTaskList(long current, long size);
 }
