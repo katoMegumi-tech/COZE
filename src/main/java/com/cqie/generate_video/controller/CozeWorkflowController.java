@@ -76,9 +76,9 @@ public class CozeWorkflowController {
 
 
         // 创建任务
-        String taskId = taskManager.createTask();
 
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        String taskId = taskManager.createTask(username);
 
         userPointsAccountService.consumePoints(
                 username,
