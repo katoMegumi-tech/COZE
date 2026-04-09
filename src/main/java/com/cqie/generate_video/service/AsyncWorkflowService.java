@@ -28,7 +28,7 @@ public class AsyncWorkflowService {
      * 异步执行工作流
      */
     @Async("videoTaskExecutor")
-    public void executeWorkflowAsync(String taskId, CozeWorkflowRequest request) {
+    public void executeWorkflowAsync(String taskId, CozeWorkflowRequest request, String username) {
         log.info("异步任务开始执行，taskId: {}, 线程: {}", taskId, Thread.currentThread().getName());
 
         
@@ -53,22 +53,22 @@ public class AsyncWorkflowService {
                 && !response.getData().getVideoUrls().isEmpty()) {
 
                 if (response.getData().getErrorMessage() != null) {
-                    taskManager.failTask(taskId, response.getData().getErrorMessage(), debugUrl);
+                    taskManager.failTask(taskId, response.getData().getErrorMessage(), debugUrl, username);
                 } else {
-                    taskManager.completeTask(taskId, response.getData().getVideoUrls(), debugUrl);
+                    taskManager.completeTask(taskId, response.getData().getVideoUrls(), debugUrl, request.getProductName(), username);
                     log.info("任务 {} 完成，生成 {} 个视频", taskId, response.getData().getVideoUrls().size());
                 }
             } else {
                 String errorMsg = response.getData() != null && response.getData().getErrorMessage() != null
                     ? response.getData().getErrorMessage()
                     : "生成失败";
-                taskManager.failTask(taskId, errorMsg, debugUrl);
+                taskManager.failTask(taskId, errorMsg, debugUrl, username);
             }
 
         } catch (Exception e) {
             String errorDetail = String.format("任务 %s 执行失败: %s", taskId, e.getMessage());
             log.error(errorDetail, e);
-            taskManager.failTask(taskId, errorDetail, debugUrl);
+            taskManager.failTask(taskId, errorDetail, debugUrl, username);
         }
     }
 }
