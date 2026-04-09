@@ -298,14 +298,14 @@ public class CopywritingServiceImpl implements CopywritingService {
      * 异步生成文案（立即返回任务 ID）
      */
     @Override
-    public CopywritingResponse generateCopywritingAsync(CopywritingRequest request) {
+    public CopywritingResponse generateCopywritingAsync(CopywritingRequest request, String username) {
 
 
         log.info("开始异步生成文案，产品名称：{}", request.getProductServiceName());
             
         // 创建任务
-        String taskId = taskManager.createTask();
-    
+        String taskId = taskManager.createTask(username);
+
         // 立即返回任务 ID
         CopywritingResponse response = new CopywritingResponse();
         response.setTaskId(taskId);
