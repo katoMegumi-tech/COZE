@@ -1,10 +1,13 @@
 package com.cqie.generate_video.service;
 
+import com.cqie.admin.util.BeanUtil;
 import com.cqie.generate_video.dto.response.TaskStatusResponse;
+import com.cqie.generate_video.entity.VideoTaskDO;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
@@ -22,6 +25,7 @@ public class TaskManager {
     
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
+    private final VideoTaskService videoTaskService;
     
     // Redis key 前缀
     private static final String TASK_KEY_PREFIX = "video:task:";
@@ -29,8 +33,9 @@ public class TaskManager {
     // 任务过期时间（24小时）
     private static final long TASK_EXPIRE_HOURS = 24;
     
-    public TaskManager(StringRedisTemplate redisTemplate) {
+    public TaskManager(StringRedisTemplate redisTemplate, VideoTaskService videoTaskService) {
         this.redisTemplate = redisTemplate;
+        this.videoTaskService = videoTaskService;
         this.objectMapper = new ObjectMapper();
     }
     
@@ -63,43 +68,48 @@ public class TaskManager {
             log.debug("更新任务 {} 状态: {} - {}", taskId, status, message);
         }
     }
-    
-    /**
-     * 设置任务完成
-     */
-    public void completeTask(String taskId, List<String> videoUrls) {
-        completeTask(taskId, videoUrls, null);
-    }
 
     /**
      * 设置任务完成（带 debugUrl）
      */
-    public void completeTask(String taskId, List<String> videoUrls, String debugUrl) {
+    public void completeTask(String taskId, List<String> videoUrls, String debugUrl, String productName, String username) {
         TaskStatusResponse task = getTask(taskId);
         if (task != null) {
             task.setStatus("COMPLETED");
             task.setProgress(100);
             task.setMessage("视频生成成功");
             task.setVideoUrls(videoUrls);
+            task.setProductName(productName);
             if (debugUrl != null && !debugUrl.isEmpty()) {
                 task.setDebugUrl(debugUrl);
             }
             saveTaskToRedis(taskId, task);
+
+            for (String url : videoUrls) {
+                VideoTaskDO videoTask = new VideoTaskDO();
+                videoTask.setTaskId(taskId);
+                videoTask.setVideoUrl(url);
+                videoTask.setStatus(1);
+                videoTask.setMessage("视频生成成功");
+                videoTask.setUsername(username);
+                videoTask.setStatus(1);
+                // 保存到数据库
+                videoTaskService.save(videoTask);
+            }
+
             log.info("任务 {} 完成，生成 {} 个视频", taskId, videoUrls.size());
         }
     }
-    
-    /**
-     * 设置任务失败
-     */
+
     public void failTask(String taskId, String errorMessage) {
-        failTask(taskId, errorMessage, null);
+        failTask(taskId, errorMessage, null, null);
     }
+
 
     /**
      * 设置任务失败（带 debugUrl）
      */
-    public void failTask(String taskId, String errorMessage, String debugUrl) {
+    public void failTask(String taskId, String errorMessage, String debugUrl, String username) {
         TaskStatusResponse task = getTask(taskId);
         if (task != null) {
             task.setStatus("FAILED");
@@ -110,6 +120,17 @@ public class TaskManager {
                 task.setDebugUrl(debugUrl);
             }
             saveTaskToRedis(taskId, task);
+
+            VideoTaskDO videoTask = new VideoTaskDO();
+            videoTask.setTaskId(taskId);
+            videoTask.setUsername(username);
+            videoTask.setMessage("生成失败");
+            videoTask.setStatus(0);
+            videoTask.setErrorMessage(errorMessage);
+            videoTask.setDebugUrl(debugUrl);
+            // 保存到数据库
+            videoTaskService.save(videoTask);
+
             log.error("任务 {} 失败: {}", taskId, errorMessage);
         }
     }
