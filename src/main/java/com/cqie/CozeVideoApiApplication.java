@@ -1,5 +1,6 @@
 package com.cqie;
 
+import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
@@ -7,6 +8,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * Coze 视频生成 API 应用启动类
  */
 @SpringBootApplication(scanBasePackages = "com.cqie")
+@MapperScan("com.cqie.generate_video.mapper")
 public class CozeVideoApiApplication {
 
     public static void main(String[] args) {
