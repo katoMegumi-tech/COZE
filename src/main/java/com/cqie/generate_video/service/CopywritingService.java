@@ -18,5 +18,5 @@ public interface CopywritingService {
     /**
      * 异步生成文案
      */
-    CopywritingResponse generateCopywritingAsync(CopywritingRequest request);
+    CopywritingResponse generateCopywritingAsync(CopywritingRequest request, String username);
 }
