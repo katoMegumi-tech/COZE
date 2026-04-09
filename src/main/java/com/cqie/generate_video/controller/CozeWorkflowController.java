@@ -87,7 +87,7 @@ public class CozeWorkflowController {
         );
 
         // 异步执行（通过 Service 调用）
-        asyncWorkflowService.executeWorkflowAsync(taskId, request);
+        asyncWorkflowService.executeWorkflowAsync(taskId, request, username);
         
         Map<String, String> result = new HashMap<>();
         result.put("taskId", taskId);
