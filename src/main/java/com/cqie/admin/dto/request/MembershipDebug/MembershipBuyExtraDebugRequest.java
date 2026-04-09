@@ -1,4 +1,4 @@
-package com.cqie.admin.dto.request;
+package com.cqie.admin.dto.request.MembershipDebug;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
