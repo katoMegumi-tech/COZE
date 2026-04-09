@@ -44,8 +44,8 @@ public class TaskManager {
         task.setStatus("PENDING");
         task.setProgress(0);
         task.setMessage("任务已创建，等待处理");
-        
-        saveTask(taskId, task);
+
+        saveTaskToRedis(taskId, task);
         log.info("创建任务: {}", taskId);
         return taskId;
     }
@@ -59,7 +59,7 @@ public class TaskManager {
             task.setStatus(status);
             task.setProgress(progress);
             task.setMessage(message);
-            saveTask(taskId, task);
+            saveTaskToRedis(taskId, task);
             log.debug("更新任务 {} 状态: {} - {}", taskId, status, message);
         }
     }
@@ -84,7 +84,7 @@ public class TaskManager {
             if (debugUrl != null && !debugUrl.isEmpty()) {
                 task.setDebugUrl(debugUrl);
             }
-            saveTask(taskId, task);
+            saveTaskToRedis(taskId, task);
             log.info("任务 {} 完成，生成 {} 个视频", taskId, videoUrls.size());
         }
     }
@@ -109,7 +109,7 @@ public class TaskManager {
             if (debugUrl != null && !debugUrl.isEmpty()) {
                 task.setDebugUrl(debugUrl);
             }
-            saveTask(taskId, task);
+            saveTaskToRedis(taskId, task);
             log.error("任务 {} 失败: {}", taskId, errorMessage);
         }
     }
@@ -133,7 +133,7 @@ public class TaskManager {
     /**
      * 保存任务到 Redis
      */
-    private void saveTask(String taskId, TaskStatusResponse task) {
+    private void saveTaskToRedis(String taskId, TaskStatusResponse task) {
         try {
             String key = TASK_KEY_PREFIX + taskId;
             String json = objectMapper.writeValueAsString(task);
@@ -155,7 +155,7 @@ public class TaskManager {
             task.setMessage("文案生成成功");
             task.setCopywritingContent(content);
             task.setOutputLinks(outputLinks);
-            saveTask(taskId, task);
+            saveTaskToRedis(taskId, task);
             log.info("文案任务 {} 完成", taskId);
         }
     }
