@@ -1,5 +1,6 @@
 package com.cqie.generate_video.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.cqie.admin.util.BeanUtil;
 import com.cqie.generate_video.dto.response.TaskStatusResponse;
 import com.cqie.generate_video.entity.VideoTaskDO;
@@ -42,7 +43,7 @@ public class TaskManager {
     /**
      * 创建新任务
      */
-    public String createTask() {
+    public String createTask(String username) {
         String taskId = UUID.randomUUID().toString();
         TaskStatusResponse task = new TaskStatusResponse();
         task.setTaskId(taskId);
@@ -52,6 +53,16 @@ public class TaskManager {
 
         saveTaskToRedis(taskId, task);
         log.info("创建任务: {}", taskId);
+
+        VideoTaskDO videoTask = new VideoTaskDO();
+        videoTask.setTaskId(taskId);
+        videoTask.setUsername(username);
+        videoTask.setMessage("生成中");
+        videoTask.setStatus(2);
+        // 保存到数据库
+        videoTaskService.save(videoTask);
+
+
         return taskId;
     }
     
@@ -94,7 +105,11 @@ public class TaskManager {
                 videoTask.setUsername(username);
                 videoTask.setStatus(1);
                 // 保存到数据库
-                videoTaskService.save(videoTask);
+
+                videoTaskService.update(
+                        videoTask,
+                        new QueryWrapper<VideoTaskDO>().eq("task_id", taskId).eq("username", username)
+                );
             }
 
             log.info("任务 {} 完成，生成 {} 个视频", taskId, videoUrls.size());
@@ -129,7 +144,10 @@ public class TaskManager {
             videoTask.setErrorMessage(errorMessage);
             videoTask.setDebugUrl(debugUrl);
             // 保存到数据库
-            videoTaskService.save(videoTask);
+            videoTaskService.update(
+                    videoTask,
+                    new QueryWrapper<VideoTaskDO>().eq("task_id", taskId).eq("username", username)
+            );
 
             log.error("任务 {} 失败: {}", taskId, errorMessage);
         }
