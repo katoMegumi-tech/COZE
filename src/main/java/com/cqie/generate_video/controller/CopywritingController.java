@@ -98,7 +98,7 @@ public class CopywritingController {
                 "std"
         );
     
-        CopywritingResponse response = copywritingService.generateCopywritingAsync(request);
+        CopywritingResponse response = copywritingService.generateCopywritingAsync(request, username);
         return Result.success(response);
     }
 
