@@ -64,14 +64,11 @@ public class CozeWorkflowController {
         
         log.info("========== 收到前端请求（异步） ==========");
         log.info("gearSelection: {}", request.getGearSelection());
-        log.info("productName: {}", request.getProductName());
         log.info("productDesc: {}", request.getProductDesc());
-        log.info("productFeatures: {}", request.getProductFeatures());
-        log.info("productPrice: {}", request.getProductPrice());
         log.info("videoAspectRatio: {}", request.getVideoAspectRatio());
         log.info("videoLength: {}", request.getVideoLength());
-        log.info("videoScene: {}", request.getVideoScene());
-        log.info("videoStyle: {}", request.getVideoStyle());
+        log.info("videoLength: {}", request.getImages());
+        log.info("videoLength: {}", request.getVideos());
         log.info("==========================================");
 
 
