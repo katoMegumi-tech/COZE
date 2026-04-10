@@ -4,8 +4,10 @@ import com.cqie.generate_video.config.CozeConfig;
 import com.cqie.generate_video.dto.request.CozeWorkflowRequest;
 import com.cqie.generate_video.dto.response.CozeWorkflowResponse;
 import com.cqie.generate_video.service.CozeWorkflowService;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
@@ -306,48 +308,59 @@ public class CozeWorkflowServiceImpl implements CozeWorkflowService {
      * 构建工作流参数
      */
     private Map<String, Object> buildParameters(CozeWorkflowRequest request) {
-        Map<String, Object> params = new HashMap<>();
+        // 1. 将 request 对象转为 Map（驼峰转下划线，如 gearSelection -> gear_selection）
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
+        Map<String, Object> params = mapper.convertValue(request, new TypeReference<Map<String, Object>>() {});
 
-        // image 参数需要是 JSON 字符串格式: {"file_id":"xxx"}
-        if (request.getImages() != null && !request.getImages().isEmpty()) {
-            List<String> imageParams = new ArrayList<>();
-            for (String item : request.getImages()) {
-                if (item.startsWith("http://") || item.startsWith("https://")) {
-                    imageParams.add(item);          // 直接使用 URL
-                } else {
-                    imageParams.add("{\"file_id\": \"" + item + "\"}"); // 包装 file_id
+        // 2. 特殊处理 images 字段：URL 直接保留，file_id 包装为 JSON 字符串
+        if (params.containsKey("images")) {
+            List<?> rawImages = (List<?>) params.get("images");
+            if (rawImages != null && !rawImages.isEmpty()) {
+                List<String> processedImages = new ArrayList<>();
+                for (Object item : rawImages) {
+                    String str = item.toString();
+                    if (str.startsWith("http://") || str.startsWith("https://")) {
+                        processedImages.add(str);
+                    } else {
+                        processedImages.add("{\"file_id\": \"" + str + "\"}");
+                    }
                 }
+                params.put("images", processedImages);
+            } else {
+                params.put("images", new ArrayList<>());
             }
-            params.put("images", imageParams);
         } else {
             params.put("images", new ArrayList<>());
         }
 
-        if (request.getProductName() != null)
-            params.put("product_name", request.getProductName());
-        if (request.getProductDesc() != null)
-            params.put("product_desc", request.getProductDesc());
-        if (request.getProductFeatures() != null)
-            params.put("product_features", request.getProductFeatures());
-        if (request.getProductPrice() != null)
-            params.put("product_price", request.getProductPrice());
-
-        // 设置默认值
-        params.put("video_aspect_ratio",
-                request.getVideoAspectRatio() != null ? request.getVideoAspectRatio() : "16:9");
-        params.put("video_length", request.getVideoLength() != null ? request.getVideoLength() : 10);
-        params.put("video_num", request.getVideoNum() != null ? request.getVideoNum() : 1);
-        params.put("video_resolution", request.getVideoResolution() != null ? request.getVideoResolution() : "720P");
-        // videoSubtitle 默认不传（无字幕）
-        if (request.getVideoSubtitle() != null && request.getVideoSubtitle()) {
-            params.put("video_subtitle", true);
+        // 3. 特殊处理 videos：确保是 List<String> 且不为 null
+        if (params.containsKey("videos")) {
+            List<?> rawVideos = (List<?>) params.get("videos");
+            if (rawVideos != null && !rawVideos.isEmpty()) {
+                List<String> processedVideos = new ArrayList<>();
+                for (Object item : rawVideos) {
+                    String str = item.toString();
+                    if (str.startsWith("http://") || str.startsWith("https://")) {
+                        processedVideos.add(str);
+                    } else {
+                        processedVideos.add("{\"file_id\": \"" + str + "\"}");
+                    }
+                }
+                params.put("videos", processedVideos);
+            } else {
+                params.put("videos", new ArrayList<>());
+            }
+        } else {
+            params.put("videos", new ArrayList<>());
         }
 
-        if (request.getVideoScene() != null)
-            params.put("video_scene", request.getVideoScene());
-        if (request.getVideoStyle() != null)
-            params.put("video_style", request.getVideoStyle());
+        // 4. 设置默认值（针对可能为 null 的字段）
+        params.putIfAbsent("gear_selection", "std");
+        params.putIfAbsent("video_aspect_ratio", "16:9");
+        params.putIfAbsent("video_length", 10);
 
+        // 5. 日志输出
         log.info("========== 传给 Coze 工作流的参数 ==========");
         params.forEach((key, value) -> log.info("{}: {}", key, value));
         log.info("==========================================");
