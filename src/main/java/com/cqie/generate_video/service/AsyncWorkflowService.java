@@ -55,7 +55,7 @@ public class AsyncWorkflowService {
                 if (response.getData().getErrorMessage() != null) {
                     taskManager.failTask(taskId, response.getData().getErrorMessage(), debugUrl, username);
                 } else {
-                    taskManager.completeTask(taskId, response.getData().getVideoUrls(), debugUrl, request.getProductName(), username);
+                    taskManager.completeTask(taskId, response.getData().getVideoUrls(), debugUrl, request.getProductDesc(), username);
                     log.info("任务 {} 完成，生成 {} 个视频", taskId, response.getData().getVideoUrls().size());
                 }
             } else {
